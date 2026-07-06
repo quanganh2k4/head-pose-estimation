@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package camera;
+
+// Dịch vụ quản lý camera động cho DeepStream C++ Service
+service CameraService {
+    // Thêm camera RTSP mới vào pipeline đang chạy
+    rpc AddCamera (CameraAddRequest) returns (CameraAddResponse);
+
+    // Xóa camera khỏi pipeline bằng ID
+    rpc RemoveCamera (CameraRemoveRequest) returns (CameraRemoveResponse);
+
+    // Liệt kê danh sách các camera đang active
+    rpc ListCameras (CameraListRequest) returns (CameraListResponse);
+}
+
+message CameraAddRequest {
+    string url = 1;
+}
+
+message CameraAddResponse {
+    int32 src_id = 1;
+    string url = 2;
+    string status = 3; // "added", "failed", "exists"
+}
+
+message CameraRemoveRequest {
+    int32 src_id = 1;
+}
+
+message CameraRemoveResponse {
+    int32 src_id = 1;
+    string status = 2; // "removed", "not_found", "failed"
+}
+
+message CameraListRequest {}
+
+message CameraInfo {
+    int32 src_id = 1;
+    string url = 2;
+}
+
+message CameraListResponse {
+    repeated CameraInfo cameras = 1;
+}

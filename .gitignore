@@ -1,0 +1,27 @@
+# Logs
+log/*.log
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# C++ Build
+build/
+**/build/
+
+# TensorRT Engines
+**/*.engine
+
+# Model weights (large binaries, not suitable for git — see README for download links)
+*.onnx
+*.whl
+models/**/*.so
+
+.claude/
+.vscode/

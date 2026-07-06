@@ -1,0 +1,47 @@
+[property]
+gpu-id=0
+scaling-compute-hw=1
+# Normalization parameters for PeopleNet
+net-scale-factor=0.00392156862745098
+offsets=0.0;0.0;0.0
+
+# Unique ID for the inference engine (required)
+gie-unique-id=1
+
+# Paths to the model files (using absolute paths)
+onnx-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.onnx
+model-engine-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.onnx_b8_gpu0_fp16.engine
+labelfile-path=/home/ivision/headpose-cameraIP/models/peoplenet/labels.txt
+int8-calib-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.txt
+
+# Model shape and classes
+infer-dims=3;544;960
+num-detected-classes=3
+network-type=0 # 0 = Detector
+model-color-format=0 # 0 = RGB
+maintain-aspect-ratio=0
+output-tensor-meta=0
+network-mode=2 # 2 = INT8 precision (highly recommended for pruned/quantized PeopleNet)
+
+# Output layers of DetectNet_v2 model
+output-blob-names=output_cov/Sigmoid:0;output_bbox/BiasAdd:0
+
+# Built-in DeepStream parser library and function for DetectNet_v2/TAO models
+custom-lib-path=/home/ivision/headpose-cameraIP/models/peoplenet/custom_parser/libnvds_infercustomparser.so
+parse-bbox-func-name=NvDsInferParseCustomResnet
+
+# Bounding box clustering settings (DBSCAN/NMS settings for DetectNet_v2 output)
+[class-attrs-all]
+pre-cluster-threshold=0.2
+eps=0.2
+group-threshold=1
+
+# Thresholds per class (0: person, 1: bag, 2: face)
+[class-attrs-0]
+pre-cluster-threshold=0.4
+
+[class-attrs-1]
+pre-cluster-threshold=0.4
+
+[class-attrs-2]
+pre-cluster-threshold=0.4

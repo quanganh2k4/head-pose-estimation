@@ -1,0 +1,63 @@
+%YAML:1.0
+####################################################################################################
+# Custom NvDCF Tracker Configuration optimized for stable Face Tracking and Re-Association
+####################################################################################################
+
+BaseConfig:
+  minDetectorConfidence: 0.15    # Ngưỡng detector confidence tối thiểu của PeopleNet
+
+TargetManagement:
+  enableBboxUnClipping: 1
+  preserveStreamUpdateOrder: 0
+  maxTargetsPerStream: 100
+
+  # [Creation & Termination Policy]
+  minIouDiff4NewTarget: 0.5      # Tránh tạo target mới trùng lặp khi IOU cao
+  minTrackerConfidence: 0.3      # Duy trì shadow tracking tốt hơn khi mất detector bbox
+  probationAge: 2
+  maxShadowTrackingAge: 180      # Giữ vết ảo lên tới 180 frames (~6 giây ở 30 FPS) khi người dùng quay mặt đi
+  earlyTerminationAge: 1
+
+TrajectoryManagement:
+  useUniqueID: 0
+
+DataAssociator:
+  dataAssociatorType: 0
+  associationMatcherType: 1
+  checkClassMatch: 1
+
+  # [Association Metric: Ngưỡng tối thiểu để Re-ID]
+  minMatchingScore4Overall: 0.35
+  minMatchingScore4SizeSimilarity: 0.20
+  minMatchingScore4Iou: 0.15
+  minMatchingScore4VisualSimilarity: 0.40  # Hạ xuống một chút để dễ nhận diện lại khi xoay mặt về camera
+
+  # [Association Metric: Trọng số so khớp]
+  matchingScoreWeight4VisualSimilarity: 0.60 # Ưu tiên hàng đầu việc Re-ID qua đặc trưng hình ảnh của mặt
+  matchingScoreWeight4SizeSimilarity: 0.20
+  matchingScoreWeight4Iou: 0.20
+
+  tentativeDetectorConfidence: 0.20
+  minMatchingScore4TentativeIou: 0.40
+
+StateEstimator:
+  stateEstimatorType: 1
+  processNoiseVar4Loc: 1.5
+  processNoiseVar4Size: 1.3
+  processNoiseVar4Vel: 0.05
+  measurementNoiseVar4Detector: 2.0
+  measurementNoiseVar4Tracker: 6.0
+
+VisualTracker:
+  visualTrackerType: 1          # NvDCF Tracker
+
+  # [NvDCF: Feature Extraction]
+  useColorNames: 1              # Sử dụng đặc trưng màu sắc
+  useHog: 1                     # Bật HOG (Histogram of Oriented Gradients) để trích xuất đặc trưng hình học khuôn mặt
+  featureImgSizeLevel: 3        # Nâng lên 3 để tăng độ nét của các feature trích xuất từ mặt
+  featureFocusOffsetFactor_y: 0.0
+
+  # [NvDCF: Correlation Filter]
+  filterLr: 0.05                # Học đặc trưng chậm lại để tránh bị học sai khi mặt xoay nửa chừng
+  filterChannelWeightsLr: 0.1
+  gaussianSigma: 0.75

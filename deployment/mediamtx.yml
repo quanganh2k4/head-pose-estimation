@@ -1,0 +1,16 @@
+# MediaMTX — điểm pull RTSP duy nhất cho mọi camera IP.
+# application service đăng ký/xóa path qua Control API lúc runtime khi
+# camera được thêm/xóa; deepstream-service và mọi viewer chỉ kết nối vào
+# đây (rtsp://mediamtx:8554/<path>), không bao giờ pull thẳng camera.
+
+api: yes
+apiAddress: :9997
+
+rtspAddress: :8554
+rtspTransports: [tcp]
+
+# WHEP/WebRTC (dùng ở Phase 3 cho viewer trình duyệt)
+webrtcAddress: :8889
+
+# Không khai path tĩnh nào — tất cả được thêm động qua API bởi application.
+paths:

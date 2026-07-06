@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Gaze Viewer (WebRTC/WHEP)</title>
+<style>
+  body { background:#111; color:#eee; font-family: system-ui, sans-serif; margin:0; padding:16px; }
+  .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+  select, button { font-size:14px; padding:4px 8px; }
+  #stage { position:relative; width:100%; max-width:1280px; background:#000; }
+  video { width:100%; display:block; }
+  canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  #stats { font-family: monospace; font-size:12px; color:#8f8; white-space:pre; margin-top:8px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; }
+  .ok { background:#164; }
+  .bad { background:#611; }
+</style>
+</head>
+<body>
+  <h2>Gaze Viewer — WebRTC (WHEP) + rVFC sync</h2>
+  <div class="toolbar">
+    <label>Camera: <select id="camSelect"></select></label>
+    <span id="whepStatus" class="badge bad">WHEP: disconnected</span>
+    <span id="wsStatus" class="badge bad">WS: disconnected</span>
+  </div>
+  <div id="stage">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="overlay"></canvas>
+  </div>
+  <div id="stats"></div>
+
+<script>
+const camSelect = document.getElementById('camSelect');
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const whepStatusEl = document.getElementById('whepStatus');
+const wsStatusEl = document.getElementById('wsStatus');
+const statsEl = document.getElementById('stats');
+
+let pc = null;
+let ws = null;
+let latestMeta = null;       // metadata JSON gần nhất nhận được qua WebSocket
+let latestMetaWallMs = 0;    // wall-clock lúc client nhận được latestMeta
+let rvfcCount = 0, rvfcFps = 0, lastFpsTs = performance.now();
+
+function setBadge(el, ok, text) {
+  el.textContent = text;
+  el.className = 'badge ' + (ok ? 'ok' : 'bad');
+}
+
+// ── WHEP client (chuẩn, non-trickle ICE để đơn giản/tương thích rộng) ──────────────
+function waitIceComplete(pcConn) {
+  if (pcConn.iceGatheringState === 'complete') return Promise.resolve();
+  return new Promise((resolve) => {
+    function check() {
+      if (pcConn.iceGatheringState === 'complete') {
+        pcConn.removeEventListener('icegatheringstatechange', check);
+        resolve();
+      }
+    }
+    pcConn.addEventListener('icegatheringstatechange', check);
+  });
+}
+
+async function startWhep(mediamtxHost, path) {
+  if (pc) { pc.close(); pc = null; }
+  pc = new RTCPeerConnection();
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.ontrack = (ev) => {
+    if (video.srcObject !== ev.streams[0]) video.srcObject = ev.streams[0];
+  };
+  pc.onconnectionstatechange = () => {
+    setBadge(whepStatusEl, pc.connectionState === 'connected', 'WHEP: ' + pc.connectionState);
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await waitIceComplete(pc);
+
+  const url = `http://${mediamtxHost}/${path}/whep`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/sdp' },
+    body: pc.localDescription.sdp,
+  });
+  if (!resp.ok) throw new Error(`WHEP POST ${url} failed: ${resp.status}`);
+  const answerSdp = await resp.text();
+  await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+}
+
+// ── WebSocket metadata ──────────────────────────────────────────────────────────
+function startWs(camId) {
+  if (ws) { ws.close(); ws = null; }
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/gaze/${camId}`);
+  ws.onopen = () => setBadge(wsStatusEl, true, 'WS: connected');
+  ws.onclose = () => setBadge(wsStatusEl, false, 'WS: disconnected');
+  ws.onerror = () => setBadge(wsStatusEl, false, 'WS: error');
+  ws.onmessage = (ev) => {
+    latestMeta = JSON.parse(ev.data);
+    latestMetaWallMs = Date.now();
+  };
+}
+
+// ── Vẽ overlay đồng bộ theo frame video thật (rVFC) ─────────────────────────────
+function drawOverlay() {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!latestMeta || !latestMeta.d || !latestMeta.d.length) return;
+
+  const srcW = latestMeta.w || w, srcH = latestMeta.h || h;
+  const sx = w / srcW, sy = h / srcH;
+
+  for (const det of latestMeta.d) {
+    if (!det.box) continue;
+    const [x1, y1, x2, y2] = det.box.map((v, i) => v * (i % 2 === 0 ? sx : sy));
+
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+    let label = `ID:${det.id}`;
+    if (det.yaw !== undefined && det.pitch !== undefined) {
+      label += ` Y:${det.yaw.toFixed(1)} P:${det.pitch.toFixed(1)}`;
+    }
+    ctx.fillStyle = '#0f0';
+    ctx.font = '13px monospace';
+    ctx.fillText(label, x1, Math.max(12, y1 - 6));
+
+    if (det.pts) {
+      ctx.fillStyle = '#ff0';
+      for (const name in det.pts) {
+        const p = det.pts[name];
+        if (!p || p.length < 2) continue;
+        ctx.beginPath();
+        ctx.arc(p[0] * sx, p[1] * sy, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (det.gaze) {
+      const [gx, gy] = det.gaze;
+      const ox = (x1 + x2) / 2, oy = (y1 + y2) / 2;
+      const scale = Math.max(40, (x2 - x1) * 0.8);
+      ctx.strokeStyle = '#38f';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ox + gx * scale, oy + gy * scale);
+      ctx.stroke();
+      ctx.fillStyle = '#f00';
+      ctx.beginPath();
+      ctx.arc(ox, oy, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function rvfcLoop() {
+  if (canvas.width !== video.clientWidth) canvas.width = video.clientWidth;
+  if (canvas.height !== video.clientHeight) canvas.height = video.clientHeight;
+
+  drawOverlay();
+
+  rvfcCount++;
+  const now = performance.now();
+  if (now - lastFpsTs > 1000) {
+    rvfcFps = rvfcCount / ((now - lastFpsTs) / 1000);
+    rvfcCount = 0; lastFpsTs = now;
+  }
+  const metaAgeMs = latestMeta ? (Date.now() - latestMetaWallMs) : -1;
+  statsEl.textContent =
+    `render fps: ${rvfcFps.toFixed(1)}\n` +
+    `metadata age: ${metaAgeMs}ms (thời gian từ lúc nhận WS message gần nhất tới lúc vẽ frame này)`;
+
+  if ('requestVideoFrameCallback' in video) {
+    video.requestVideoFrameCallback(rvfcLoop);
+  } else {
+    // Fallback trình duyệt cũ không hỗ trợ rVFC (mất lợi ích đồng bộ theo frame thật)
+    requestAnimationFrame(rvfcLoop);
+  }
+}
+
+// ── Khởi tạo: lấy config + danh sách camera ─────────────────────────────────────
+async function init() {
+  const cfg = await (await fetch('/config')).json();
+  const camsResp = await (await fetch('/cameras')).json();
+  const cams = camsResp.cameras.filter(c => c.mediamtx_path);
+
+  camSelect.innerHTML = '';
+  for (const c of cams) {
+    const opt = document.createElement('option');
+    opt.value = JSON.stringify({ srcId: c.src_id, path: c.mediamtx_path });
+    opt.textContent = `cam${c.src_id}`;
+    camSelect.appendChild(opt);
+  }
+
+  async function connectSelected() {
+    const { srcId, path } = JSON.parse(camSelect.value);
+    setBadge(whepStatusEl, false, 'WHEP: connecting...');
+    setBadge(wsStatusEl, false, 'WS: connecting...');
+    try {
+      await startWhep(cfg.mediamtx_webrtc_host, path);
+    } catch (e) {
+      setBadge(whepStatusEl, false, 'WHEP: ' + e.message);
+    }
+    startWs(`cam${srcId}`);
+  }
+
+  camSelect.onchange = connectSelected;
+  if (cams.length) await connectSelected();
+
+  video.requestVideoFrameCallback ? video.requestVideoFrameCallback(rvfcLoop) : requestAnimationFrame(rvfcLoop);
+}
+
+init().catch(e => { statsEl.textContent = 'Init error: ' + e; });
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Python libraries required to run streammux_python_peoplenet_gaze_v6_mqtt.py
+numpy
+paho-mqtt
+opencv-python
+onnxruntime
+scipy
+requests
+# pycuda  # Note: pycuda requires nvcc compiler. Install using: pip install pycuda
