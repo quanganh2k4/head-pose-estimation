@@ -638,61 +638,7 @@ def _unwrap(a, r):   return r + _wrap180(a - r)
 def _clamp_step(a, p, s): d = _wrap180(a - p); return p + max(-s, min(s, d))
 
 
-# ── Head pose estimator (Kabsch) ──────────────────────────────────────────────
-class YoloHeadPoseEstimator:
-    def __init__(self, smooth_alpha=0.18, point_alpha=0.35,
-                 max_angle_step=8.0, model_3d=FACE_3D_MODEL):
-        self.smooth_alpha = smooth_alpha
-        self.point_alpha = point_alpha
-        self.max_angle_step = max_angle_step
-        self.model_3d = model_3d
-        self._smooth_pts = None
-        self._smooth_ang = None
-
-    def update_points(self, m_pts):
-        """m_pts: Nx3 landmark đo được (X, Y-đã-lật-lên, Z), cùng thứ tự với self.model_3d."""
-        if self._smooth_pts is None:
-            self._smooth_pts = m_pts.copy()
-
-        if self._smooth_ang is not None:
-            delta_max = float(np.linalg.norm(m_pts - self._smooth_pts, axis=1).max()) * 0.5
-        else:
-            delta_max = 0.0
-
-        if delta_max > 12.0:
-            pts = m_pts; self._smooth_pts = m_pts.copy()
-        else:
-            a = self.point_alpha
-            self._smooth_pts = a * m_pts + (1. - a) * self._smooth_pts
-            pts = self._smooth_pts
-
-        pitch, yaw, roll, R = estimate_pose_kabsch(pts, model_3d=self.model_3d)
-
-        raw = np.array([pitch, yaw, roll])
-        if self._smooth_ang is None:
-            self._smooth_ang = raw.copy()
-        else:
-            if   delta_max > 25.0: alpha, step = 1.0, 999.0
-            elif delta_max > 12.0: alpha, step = 0.90, 45.0
-            elif delta_max > 5.0:  alpha, step = 0.55, 20.0
-            else:                  alpha, step = self.smooth_alpha, self.max_angle_step
-            raw = np.array([
-                _clamp_step(_unwrap(raw[0], self._smooth_ang[0]), self._smooth_ang[0], step),
-                _clamp_step(_unwrap(raw[1], self._smooth_ang[1]), self._smooth_ang[1], step),
-                _clamp_step(_unwrap(raw[2], self._smooth_ang[2]), self._smooth_ang[2], step * .5),
-            ])
-            self._smooth_ang = alpha * raw + (1. - alpha) * self._smooth_ang
-
-        pitch, yaw, roll = self._smooth_ang
-        pr, yr, rr = math.radians(pitch), math.radians(yaw), math.radians(roll)
-        Rx = np.array([[1, 0, 0], [0, math.cos(pr), -math.sin(pr)], [0, math.sin(pr), math.cos(pr)]])
-        Ry = np.array([[math.cos(yr), 0, math.sin(yr)], [0, 1, 0], [-math.sin(yr), 0, math.cos(yr)]])
-        Rz = np.array([[math.cos(rr), -math.sin(rr), 0], [math.sin(rr), math.cos(rr), 0], [0, 0, 1]])
-        return {"pitch": float(pitch), "yaw": float(yaw), "roll": float(roll), "R_smooth": Rz @ Ry @ Rx}
-
-
 # Global estimator cache
-_pose_estimators_kabsch = {}
 _pose_estimators_spherical = {}
 
 

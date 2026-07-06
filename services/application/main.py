@@ -65,8 +65,28 @@ ALERT_DURATION_S   = float(os.environ.get("ALERT_DURATION_S", "3.0"))
 
 # Track consecutive alert frames per (cam, person)
 _alert_tracker: dict = defaultdict(lambda: {"count": 0, "since": 0.0, "fired": False})
-# Track YoloHeadPoseEstimator instance per (cam, person)
+# Track SphericalHeadPoseEstimator instance per (cam, person)
 _pose_estimators: dict = {}
+# Người rời khỏi khung hình thì tracker cấp object_id mới — estimator/tracker của
+# id cũ sẽ không bao giờ được dùng lại. Dọn định kỳ để không rò rỉ bộ nhớ khi
+# hệ thống chạy dài ngày với nhiều người qua lại.
+_state_last_seen: dict = {}   # {(cam_id, person_id): monotonic_ts}
+_STATE_TTL_S       = 60.0
+_PURGE_INTERVAL_S  = 30.0
+_last_purge_ts     = 0.0
+
+
+def _purge_stale_state():
+    global _last_purge_ts
+    now = time.monotonic()
+    if now - _last_purge_ts < _PURGE_INTERVAL_S:
+        return
+    _last_purge_ts = now
+    stale = [k for k, seen in _state_last_seen.items() if now - seen > _STATE_TTL_S]
+    for key in stale:
+        _state_last_seen.pop(key, None)
+        _pose_estimators.pop(key, None)
+        _alert_tracker.pop(key, None)
 
 # ── WebSocket relay (cho viewer WebRTC/WHEP, Phase 3) ──────────────────────────────
 # MQTT callback (_on_message) chạy trên thread riêng của paho-mqtt, không phải asyncio
@@ -155,6 +175,7 @@ def _on_message(client, userdata, msg):
             if pts is not None:
                 person_id = det.get("id", i)
                 key = (cam_id, person_id)
+                _state_last_seen[key] = time.monotonic()
                 estimator = _pose_estimators.get(key)
                 if estimator is None:
                     # Chạy duy nhất thuật toán Spherical Morphing của bài báo gốc
@@ -190,6 +211,7 @@ def _on_message(client, userdata, msg):
             _history[cam_id].append(payload)
         _check_alerts(cam_id, detections, payload.get("ts", 0))
         _broadcast_ws(cam_id, payload)
+        _purge_stale_state()
 
         try:
             client.publish(f"gaze/{cam_id}/calculated", json.dumps(payload, separators=(',',':')), qos=0)
@@ -405,13 +427,20 @@ def _log_shipper():
 
 # ── Entry point ──────────────────────────────────────────────────────────────────
 def main():
-    # MQTT
-    try:
-        _mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-        _mqtt_client.loop_start()
-    except Exception as e:
-        print(f"[MQTT] Initial connect failed: {e} (will retry...)")
-        threading.Thread(target=lambda: _mqtt_client.reconnect(), daemon=True).start()
+    # MQTT — nếu broker chưa sẵn sàng lúc khởi động (race giữa các container),
+    # retry trong background cho tới khi kết nối được; sau đó paho tự reconnect
+    # theo reconnect_delay_set nếu rớt mạng giữa chừng.
+    def _mqtt_connect_with_retry():
+        while True:
+            try:
+                _mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+                _mqtt_client.loop_start()
+                return
+            except Exception as e:
+                print(f"[MQTT] Connect failed: {e} (retry in 3s...)")
+                time.sleep(3)
+
+    threading.Thread(target=_mqtt_connect_with_retry, daemon=True, name="mqtt-connect").start()
 
     # Log shipper
     threading.Thread(target=_log_shipper, daemon=True, name="log-shipper").start()
