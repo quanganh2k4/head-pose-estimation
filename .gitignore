@@ -1,3 +1,7 @@
+# Secrets — credential camera/RTSP nằm trong .env, không bao giờ commit
+.env
+deployment/.env
+
 # Logs
 log/*.log
 *.log

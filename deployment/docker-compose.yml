@@ -1,6 +1,4 @@
-version: '3.8'
-
-# ─── Kiến trúc mới: 4 service tách biệt ────────────────────────────────────────
+# ─── Kiến trúc: 4 service tách biệt ────────────────────────────────────────────
 #
 #  mediamtx            ← Điểm pull RTSP DUY NHẤT từ camera IP thật. application
 #                         đăng ký/xóa path qua Control API (:9997) khi camera được
@@ -19,7 +17,7 @@ version: '3.8'
 # ─── Dynamic camera: ─────────────────────────────────────────────────────────────
 #   # Thêm camera (không restart):
 #   curl -XPOST http://localhost:8080/cameras/add -H 'Content-Type: application/json' \
-#        -d '{"url": "rtsp://admin:admin_123@192.168.1.105:1904/stream"}'
+#        -d '{"url": "rtsp://<user>:<password>@<camera_ip>:<port>/stream"}'
 #
 #   # Xóa camera:
 #   curl -XDELETE http://localhost:8080/cameras/2
@@ -87,10 +85,11 @@ services:
       - MEDIAMTX_API=http://127.0.0.1:9997
       - MEDIAMTX_RTSP_HOST=127.0.0.1:8554
       # IP LAN thật của Jetson — viewer bên ngoài (laptop khác) dùng để pull video
-      # qua mediamtx. Đổi thành IP thật của thiết bị trong mạng LAN.
-      - MEDIAMTX_PUBLIC_RTSP_HOST=192.168.1.100:8554
-      # Camera add lúc khởi động (thay cho RTSP_URLS cũ của deepstream-service)
-      - CAMERA_URLS=rtsp://user:password@192.168.1.10:1904/stream,rtsp://user:password@192.168.1.11:1904/stream
+      # qua mediamtx. Khai báo trong file .env (xem .env.example).
+      - MEDIAMTX_PUBLIC_RTSP_HOST=${MEDIAMTX_PUBLIC_RTSP_HOST:-127.0.0.1:8554}
+      # Camera add lúc khởi động — URL chứa credential nên KHÔNG hardcode ở đây.
+      # Khai báo trong deployment/.env (đã gitignore, xem .env.example).
+      - CAMERA_URLS=${CAMERA_URLS:-}
 
       # Optional: push log/alert đến VPS
       # - LOG_SERVER_URL=http://your-vps:5000/api/logs
