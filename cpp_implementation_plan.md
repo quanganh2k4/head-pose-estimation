@@ -166,7 +166,7 @@ graph TD
 ---
 
 > [!IMPORTANT]
-> **Khuyến nghị giai đoạn tiếp theo:**
+> **Giai đoạn tiếp theo:**
 > 1. Viết và tích hợp file định nghĩa `proto/camera.proto`.
 > 2. Cấu hình CMake để tự sinh code gRPC cho cả C++ và Python.
 > 3. Tiến hành viết thử nghiệm `src/source_manager.cpp` (bằng C++) để hoàn thiện phần xương sống của Pipeline động.
