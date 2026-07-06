@@ -1,5 +1,14 @@
 # Headpose Camera IP — DeepStream Microservices Pipeline
 
+[![CI](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci.yml/badge.svg)](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-NVIDIA%20Jetson-76B900?logo=nvidia&logoColor=white)
+![DeepStream](https://img.shields.io/badge/DeepStream-7.0-76B900)
+![TensorRT](https://img.shields.io/badge/TensorRT-C%2B%2B%20API-76B900)
+![C++](https://img.shields.io/badge/C%2B%2B-17-blue?logo=cplusplus)
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-REST%20%2B%20WebSocket-009688?logo=fastapi&logoColor=white)
+
 Hệ thống nhận diện hướng nhìn (gaze) và dáng đầu (head pose) theo thời gian thực từ nhiều camera IP, xây dựng trên nền NVIDIA DeepStream SDK và GStreamer, chạy trên thiết bị edge Jetson. Mục tiêu ban đầu là phát hiện tình trạng người dùng mất tập trung (nhìn lệch khỏi camera quá lâu) để phục vụ giám sát, và bài toán đặt ra buộc toàn bộ pipeline — từ decode video, inference, đến tổng hợp metadata — phải chạy đủ nhanh trên phần cứng Jetson hạn chế tài nguyên.
 
 Bản đầu tiên của dự án là một script Python nguyên khối (`src/test/scripts/streammux_python_peoplenet_gaze_v6_mqtt.py`) dùng để thử nghiệm nhanh pipeline PeopleNet + FaceMesh. Sau khi xác nhận thuật toán hoạt động đúng, toàn bộ phần inference được viết lại bằng C++ native để loại bỏ overhead của Python/GIL, đồng thời hệ thống được tách thành các microservices giao tiếp qua gRPC và MQTT để tách biệt phần AI inference (cần GPU) khỏi phần business logic (chạy CPU), và cho phép thêm/bớt camera vào pipeline đang chạy mà không cần khởi động lại toàn bộ service.
@@ -7,6 +16,45 @@ Bản đầu tiên của dự án là một script Python nguyên khối (`src/t
 ---
 
 ## Kiến trúc hệ thống
+
+```mermaid
+graph LR
+    subgraph LAN["Mạng LAN"]
+        CAM["📷 Camera IP 1..N<br/>(RTSP, H264/H265)"]
+        VIEWER["💻 Client / Viewer<br/>REST · WebSocket · WebRTC"]
+    end
+
+    subgraph JETSON["NVIDIA Jetson — docker compose (4 container)"]
+        MTX["MediaMTX<br/>RTSP proxy :8554 · Control API :9997<br/>WebRTC/WHEP :8889"]
+
+        subgraph DS["deepstream-service (C++)"]
+            GRPC["gRPC Server :50051<br/>Add/Remove/List camera"]
+            PIPE["GStreamer pipeline<br/>decode → nvstreammux →<br/>PeopleNet (nvinfer) → NvDCF tracker"]
+            PROBE["Pad probe<br/>crop/resize trên GPU (NvBufSurfTransform)<br/>FaceMesh qua TensorRT C++ API"]
+        end
+
+        MQTT["MQTT Broker<br/>Mosquitto :1883"]
+
+        subgraph APP["application (Python / FastAPI)"]
+            ALGO["Spherical Morphing<br/>+ One-Euro Filter"]
+            ALERT["Alert engine<br/>phát hiện mất tập trung"]
+            API["REST API :8080<br/>WebSocket /ws/gaze"]
+        end
+    end
+
+    CAM -->|"RTSP — điểm pull duy nhất"| MTX
+    MTX -->|"RTSP đã proxy"| PIPE
+    PIPE --> PROBE
+    PROBE -->|"landmark JSON<br/>gaze/+/metadata"| MQTT
+    MQTT --> ALGO
+    ALGO --> ALERT
+    ALGO -->|"gaze/+/calculated"| MQTT
+    API -->|"đăng ký path (HTTP)"| MTX
+    API -->|"AddCamera / RemoveCamera"| GRPC
+    GRPC -.->|"link/unlink động vào nvstreammux"| PIPE
+    VIEWER <--> API
+    MTX -->|"video WebRTC (WHEP)"| VIEWER
+```
 
 Hệ thống gồm 4 service độc lập, mỗi service chạy trong container riêng và giao tiếp qua mạng nội bộ:
 
@@ -71,15 +119,18 @@ Kết quả yaw/pitch/roll và vector hướng nhìn được dùng để phát 
 ## Cấu trúc thư mục
 
 ```
+├── .github/workflows/ci.yml       CI: lint + unit test thuật toán trên mỗi push/PR
 ├── deployment/                    Cấu hình triển khai
 │   ├── docker-compose.yml         Định nghĩa 4 service
+│   ├── .env.example                Mẫu cấu hình camera (credential nằm trong .env, không commit)
 │   ├── mediamtx.yml                Cấu hình MediaMTX
 │   └── mosquitto.conf              Cấu hình MQTT broker
 ├── services/
 │   ├── application/                Business logic + REST API (Python/FastAPI)
 │   │   ├── main.py
 │   │   ├── modules/head_pose_algo.py   Thuật toán Spherical Morphing
-│   │   └── static/viewer.html          Trang xem trực tiếp qua WebRTC
+│   │   ├── static/viewer.html          Trang xem trực tiếp qua WebRTC
+│   │   └── tests/                      Unit test cho thuật toán head pose
 │   └── deepstream/                 AI inference service (C++)
 │       ├── CMakeLists.txt
 │       ├── proto/camera.proto      Định nghĩa gRPC API quản lý camera
@@ -119,11 +170,19 @@ TensorRT engine (`.engine`) sẽ được `nvinfer` tự build ở lần chạy 
 
 1. Chuẩn bị model theo hướng dẫn ở phần Models bên trên.
 
-2. Cấu hình camera và ngưỡng cảnh báo trong [deployment/docker-compose.yml](deployment/docker-compose.yml):
+2. Tạo file cấu hình môi trường từ mẫu và điền URL camera thật (URL chứa
+   user/password của camera nên nằm trong `.env` — file này đã được gitignore,
+   không bao giờ commit credential lên repo):
+   ```bash
+   cd deployment
+   cp .env.example .env
+   # Sửa CAMERA_URLS và MEDIAMTX_PUBLIC_RTSP_HOST trong .env
+   ```
+   Ngưỡng cảnh báo cấu hình trong [deployment/docker-compose.yml](deployment/docker-compose.yml):
    ```yaml
-   - CAMERA_URLS=rtsp://user:password@<ip_camera_1>/stream,rtsp://user:password@<ip_camera_2>/stream
    - YAW_ALERT_DEG=45.0
    - PITCH_ALERT_DEG=30.0
+   - ALERT_DURATION_S=3.0
    ```
 
 3. Build và khởi chạy:
@@ -188,3 +247,44 @@ Tài liệu tương tác (Swagger UI, ReDoc) có sẵn tại `/docs` và `/redoc
   ]
 }
 ```
+
+---
+
+## Kiểm thử
+
+Thuật toán head pose là phần thuần Python (numpy/scipy) nên test được trên máy
+bất kỳ, không cần GPU hay DeepStream. Bộ test tạo dữ liệu tổng hợp bằng cách
+chiếu mô hình khuôn mặt 3D đã xoay một góc yaw/pitch biết trước xuống 2D, rồi
+kiểm tra estimator khôi phục đúng góc đó — đồng thời phủ các nhánh xử lý
+landmark bị che khuất và bộ lọc One-Euro:
+
+```bash
+pip install numpy scipy pytest
+pytest services/application/tests/ -v
+```
+
+CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) chạy lint + toàn bộ
+unit test trên mỗi push/PR. Phần C++ (DeepStream/TensorRT) chỉ build được trên
+Jetson nên nằm ngoài CI và được kiểm thử trực tiếp trên thiết bị.
+
+---
+
+## Ghi chú bảo mật
+
+Hệ thống được thiết kế chạy trong mạng LAN tin cậy trên thiết bị edge; các
+quyết định bảo mật hiện tại và giới hạn của chúng:
+
+- **Credential camera** (user/pass trong URL RTSP) chỉ nằm trong `deployment/.env`
+  — file này được gitignore và không bao giờ commit. Tên path đăng ký trên
+  MediaMTX là hash của URL, nên credential không lộ ra ở URL viewer phía ngoài.
+- **MQTT** (`allow_anonymous true`) và **gRPC** (insecure channel) không bật
+  auth/TLS vì cả hai chỉ giao tiếp loopback giữa các container trên cùng thiết bị.
+  Nếu tách service ra nhiều máy, cần bật user/password cho Mosquitto và TLS cho gRPC.
+- **REST API** mở CORS `*` để tiện phát triển dashboard; khi triển khai thật
+  nên giới hạn origin và đặt API sau reverse proxy có auth.
+
+---
+
+## Giấy phép
+
+Dự án phát hành theo giấy phép [MIT](LICENSE).
