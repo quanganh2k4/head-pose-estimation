@@ -111,7 +111,7 @@ ENTRYPOINT ["./deepstream_gRPC_service"]
 Quy trình hoạt động của hệ thống chạy hoàn toàn bằng C++ được minh họa qua sơ đồ sau:
 
 ```mermaid
-graph TD
+flowchart TD
     %% Định nghĩa các node
     subgraph Python_App["Application Service (Python)"]
         FastAPI["FastAPI App (port 8080)"]
@@ -130,26 +130,25 @@ graph TD
             Probe["Custom Pad Probe (C++)"]
             Sink["fakesink (Drop frame)"]
             
-            Muxer --> PGIE
-            PGIE --> Conv
-            Conv -->|Attached Pad Probe| Probe
+            Muxer --> PGIE --> Conv -->|Attached Pad Probe| Probe
             Probe --> Sink
         end
         
-        MQTT_Pub["MQTT Publisher"]
         TRT_Mesh["TensorRT FaceMesh Engine"]
+        MQTT_Pub["MQTT Publisher"]
     end
 
-    %% Tương tác luồng điều khiển (gRPC)
-    gRPC_Client -->|gRPC Call: Add/Remove Camera| gRPC_Server
+    MQTT_Broker["MQTT Broker (Mosquitto)"]
+
+    %% Luồng điều khiển (gRPC)
+    gRPC_Client -->|gRPC Call:<br/>Add/Remove Camera| gRPC_Server
     gRPC_Server -->|Invoke Thread-safe Action| Src_Mgr
     Src_Mgr -->|Dynamically Link/Unlink Src| Muxer
 
-    %% Tương tác luồng dữ liệu (Frame & Metadata)
-    Probe -->|Extract Face Crop & Landmarks| TRT_Mesh
-    TRT_Mesh -->|Calculate Gaze Vector & Angles| Probe
-    Probe -->|Publish Payload JSON| MQTT_Pub
-    MQTT_Pub -->|Topic: gaze/camX/metadata| MQTT_Broker["MQTT Broker (Mosquitto)"]
+    %% Luồng xử lý dữ liệu & Inference (Thẳng hàng từ trên xuống)
+    Probe -->|1. Extract Face Crop & Landmarks| TRT_Mesh
+    TRT_Mesh -->|2. Calculate Gaze Vector & Angles| MQTT_Pub
+    MQTT_Pub -->|Topic: gaze/camX/metadata| MQTT_Broker
 
     %% Class Styling
     style Python_App fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
