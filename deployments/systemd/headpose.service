@@ -1,0 +1,15 @@
+[Unit]
+Description=Head Pose Estimation & Edge Vision Pipeline
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/headpose-cameraIP
+ExecStart=/usr/bin/docker compose -f deployments/docker/docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker compose -f deployments/docker/docker-compose.prod.yml down
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

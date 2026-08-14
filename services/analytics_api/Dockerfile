@@ -13,4 +13,4 @@ RUN pip install --no-cache-dir \
     grpcio \
     protobuf
 
-COPY services/application/ /app/
+COPY services/analytics_api/ /app/

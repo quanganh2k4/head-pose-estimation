@@ -1,0 +1,49 @@
+# ==============================================================================
+# Development / Local Simulation Docker Compose
+# Runs infrastructure services (Mosquitto, MediaMTX) and local analytics API
+# ==============================================================================
+
+version: '3.8'
+
+services:
+
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker-dev
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ../../configs/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx-dev
+    restart: unless-stopped
+    ports:
+      - "8554:8554"  # RTSP
+      - "8889:8889"  # WebRTC
+      - "9997:9997"  # Control API
+    volumes:
+      - ../../configs/mediamtx.yml:/mediamtx.yml:ro
+
+  analytics-api:
+    build:
+      context: ../..
+      dockerfile: services/analytics_api/Dockerfile
+    image: headpose-analytics-api:dev
+    container_name: analytics-api-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - MQTT_BROKER=mqtt-broker
+      - MQTT_PORT=1883
+      - DEEPSTREAM_GRPC_SERVER=vision-pipeline:50051
+      - APP_PORT=8080
+      - DEVICE_ID=local-dev-instance
+      - MEDIAMTX_API=http://mediamtx:9997
+      - MEDIAMTX_RTSP_HOST=mediamtx:8554
+    depends_on:
+      - mqtt-broker
+      - mediamtx

@@ -20,10 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy toàn bộ mã nguồn của service (bao gồm CMakeLists.txt, proto/, src/)
-COPY services/deepstream/ /app/
+COPY services/vision_pipeline/ /app/
 
 # Copy binary đã biên dịch sẵn từ host (được compile trong container có GPU/runtime=nvidia)
-COPY services/deepstream/build/deepstream_gRPC_service /app/deepstream_gRPC_service
+COPY services/vision_pipeline/build/deepstream_gRPC_service /app/deepstream_gRPC_service
 
 # Expose cổng gRPC mặc định
 EXPOSE 50051

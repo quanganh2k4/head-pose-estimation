@@ -1,0 +1,17 @@
+name: Docker Build Validation
+
+on:
+  push:
+    branches: [main, refactor/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-analytics-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Analytics API Docker Image
+        run: |
+          docker build -t headpose-analytics-api:test -f services/analytics_api/Dockerfile .

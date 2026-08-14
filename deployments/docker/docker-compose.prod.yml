@@ -1,0 +1,90 @@
+# ==============================================================================
+# Production Docker Compose — Edge Vision & Analytics Microservices
+# Architecture:
+#   1. mediamtx            : Single RTSP pull proxy & WebRTC (WHEP) gateway (:8554, :9997, :8889)
+#   2. vision-pipeline     : DeepStream 7.0 + TensorRT C++ Inference & Dynamic Pad Link (:50051)
+#   3. analytics-api       : Python FastAPI + Head Pose / Gaze Estimator (:8080)
+#   4. mqtt-broker         : Mosquitto Pub/Sub Message Bus (:1883)
+# ==============================================================================
+
+version: '3.8'
+
+services:
+
+  # ── SERVICE 1: Vision Pipeline (DeepStream + TensorRT C++ Engine) ───────────
+  vision-pipeline:
+    build:
+      context: ../..
+      dockerfile: services/vision_pipeline/Dockerfile
+    image: headpose-vision-pipeline:latest
+    container_name: vision-pipeline
+    restart: unless-stopped
+    network_mode: host          # Required for RTSP camera ingestion and IPC
+    ipc: host                   # NVMM hardware zero-copy buffer sharing
+    runtime: nvidia
+    environment:
+      - MAX_CAMERAS=8             # Maximum concurrent RTSP streams
+      - ONNX_MODEL_PATH=/models/mediapipe_pose/20_new_onnx_postprocess_N-batch/face_mesh_192x192_post.onnx
+      - PEOPLENET_CONFIG=/models/peoplenet/config_infer_peoplenet.txt
+      - TRT_ENGINE_PATH=/models/mediapipe_pose/20_new_onnx_postprocess_N-batch/face_mesh_192x192.onnx_b1_gpu0_fp16.engine
+      - MQTT_BROKER=127.0.0.1
+      - MQTT_PORT=1883
+      - USE_GPU_LANDMARK=1
+      - AARCH64_IGPU=1
+      - LOG_DIR=/logs
+      - CAMERA_API_PORT=9001
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ../../models:/models:ro
+      - ../../models:/app/models:ro
+      - ../../log:/logs
+    depends_on:
+      - mqtt-broker
+
+  # ── SERVICE 2: Analytics API (Business Logic & REST/WebSocket Gateway) ──────
+  analytics-api:
+    build:
+      context: ../..
+      dockerfile: services/analytics_api/Dockerfile
+    image: headpose-analytics-api:latest
+    container_name: analytics-api
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - MQTT_BROKER=127.0.0.1
+      - MQTT_PORT=1883
+      - DEEPSTREAM_GRPC_SERVER=127.0.0.1:50051
+      - APP_PORT=8080
+      - DEVICE_ID=jetson-edge
+      - YAW_ALERT_DEG=45.0
+      - PITCH_ALERT_DEG=30.0
+      - ALERT_DURATION_S=3.0
+      - MEDIAMTX_API=http://127.0.0.1:9997
+      - MEDIAMTX_RTSP_HOST=127.0.0.1:8554
+      - MEDIAMTX_PUBLIC_RTSP_HOST=${MEDIAMTX_PUBLIC_RTSP_HOST:-127.0.0.1:8554}
+      - MEDIAMTX_PUBLIC_WEBRTC_HOST=${MEDIAMTX_PUBLIC_WEBRTC_HOST:-127.0.0.1:8889}
+      - CAMERA_URLS=${CAMERA_URLS:-}
+    command: python3 main.py
+    depends_on:
+      - mqtt-broker
+      - mediamtx
+      - vision-pipeline
+
+  # ── SERVICE 3: MQTT Broker (Event Bus) ──────────────────────────────────────
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt-broker
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ../../configs/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  # ── SERVICE 4: MediaMTX (RTSP & WebRTC Proxy Gateway) ───────────────────────
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: mediamtx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ../../configs/mediamtx.yml:/mediamtx.yml:ro
