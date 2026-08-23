@@ -27,5 +27,16 @@ build/
 *.whl
 models/**/*.so
 
+# NVIDIA DeepStream SDK proprietary sample code (LicenseRef-NvidiaProprietary) —
+# must NOT be redistributed; obtain locally from the DeepStream SDK install.
+# See THIRD_PARTY_NOTICES.md.
+models/peoplenet/custom_parser/
+models/peoplenet/resnet34_peoplenet_int8.txt
+
 .claude/
 .vscode/
+
+# Private local interview/deep-dive notes and legacy benchmark
+docs/project_deep_dive_guide.md
+docs/codebase_line_by_line_architecture_deep_dive.md
+benchmarks/poc_monolithic_pipeline.py

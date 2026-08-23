@@ -6,6 +6,20 @@ Tài liệu này mô tả cách các thành phần phối hợp với nhau và n
 2. Dữ liệu được trao đổi bằng giao thức nào?
 3. Khi thay đổi một tính năng thì cần sửa ở đâu?
 
+## Thiết kế C++/DeepStream hiện tại
+
+`services/vision_pipeline` là một C++17 service được xây dựng bằng CMake. `main.cpp`
+khởi tạo MQTT, gRPC server và GLib main loop; `pipeline.cpp` tạo
+`nvstreammux → nvinfer (PeopleNet) → nvvideoconvert → fakesink` và quản lý
+source động; `probe_processor.cpp` xử lý `NvDsBatchMeta`, crop khuôn mặt,
+chạy FaceMesh TensorRT, kiểm tra landmark và publish metadata lên MQTT.
+
+Control plane dùng gRPC cho `AddCamera`, `RemoveCamera` và `ListCameras`.
+Data plane dùng RTSP qua MediaMTX, MQTT topic `gaze/<camera_id>/metadata`, rồi
+analytics API tính pose/gaze, smoothing, alert và phát qua REST/WebSocket.
+Pad probe phải giữ throughput và ownership của buffer; business logic không nên
+được đưa vào pipeline C++.
+
 ## 1. Tổng quan
 
 Hệ thống gồm bốn service/container. Mỗi service có một trách nhiệm rõ ràng:
