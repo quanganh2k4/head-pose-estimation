@@ -8,11 +8,12 @@ offsets=0.0;0.0;0.0
 # Unique ID for the inference engine (required)
 gie-unique-id=1
 
-# Paths to the model files (using absolute paths)
-onnx-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.onnx
-model-engine-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.onnx_b8_gpu0_fp16.engine
-labelfile-path=/home/ivision/headpose-cameraIP/models/peoplenet/labels.txt
-int8-calib-file=/home/ivision/headpose-cameraIP/models/peoplenet/resnet34_peoplenet_int8.txt
+# Paths are relative to the DeepStream process working directory. Adjust them
+# for deployments that launch the service from a different directory.
+onnx-file=../models/peoplenet/resnet34_peoplenet_int8.onnx
+model-engine-file=../models/peoplenet/resnet34_peoplenet_int8.onnx_b8_gpu0_fp16.engine
+labelfile-path=../models/peoplenet/labels.txt
+int8-calib-file=../models/peoplenet/resnet34_peoplenet_int8.txt
 
 # Model shape and classes
 infer-dims=3;544;960
@@ -27,7 +28,7 @@ network-mode=2 # 2 = INT8 precision (highly recommended for pruned/quantized Peo
 output-blob-names=output_cov/Sigmoid:0;output_bbox/BiasAdd:0
 
 # Built-in DeepStream parser library and function for DetectNet_v2/TAO models
-custom-lib-path=/home/ivision/headpose-cameraIP/models/peoplenet/custom_parser/libnvds_infercustomparser.so
+custom-lib-path=../models/peoplenet/custom_parser/libnvds_infercustomparser.so
 parse-bbox-func-name=NvDsInferParseCustomResnet
 
 # Bounding box clustering settings (DBSCAN/NMS settings for DetectNet_v2 output)

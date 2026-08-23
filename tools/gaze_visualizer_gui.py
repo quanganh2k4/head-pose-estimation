@@ -1084,9 +1084,7 @@ def main():
         else:
             _script_dir = os.path.dirname(os.path.abspath(__file__))
             _candidates = [
-                os.path.join(_script_dir, "models", "scrfd", "det_10g.engine"),
-                os.path.join(os.path.expanduser("~"), "headpose-cameraIP", "models", "scrfd", "det_10g.engine"),
-                "/home/ivision/headpose-cameraIP/models/scrfd/det_10g.engine",
+                os.path.join(_script_dir, "..", "models", "scrfd", "det_10g.engine"),
                 os.path.join(os.getcwd(), "models", "scrfd", "det_10g.engine"),
             ]
             engine_path = next((p for p in _candidates if os.path.exists(p)), None)
