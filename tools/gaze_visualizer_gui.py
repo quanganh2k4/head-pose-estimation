@@ -1015,7 +1015,7 @@ def main():
     parser.add_argument("--no-web", dest="web", action="store_false",
                         help="Disable the MJPEG web server when only --gui is needed, avoiding "
                              "cv2.imshow (main thread) and cv2.imencode (web thread) "
-                             "cùng đụng vào Qt internals gây spam 'QObject::killTimer'.")
+                             "both touching Qt internals and generating 'QObject::killTimer' spam.")
     parser.add_argument("--web-port", type=int, default=5000,
                         help="MJPEG web server port")
     parser.add_argument("--pipeline-delay", type=float, default=PIPELINE_DELAY_MS,
