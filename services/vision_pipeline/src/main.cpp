@@ -25,14 +25,14 @@ using camera::CameraListRequest;
 using camera::CameraListResponse;
 using camera::CameraInfo;
 
-// Triển khai gRPC Service
+// Implementation note.
 class CameraServiceImpl final : public CameraService::Service {
     Status AddCamera(ServerContext* context, const CameraAddRequest* request,
                      CameraAddResponse* reply) override {
         std::string url = request->url();
         std::cout << "[gRPC] Received request to add camera: " << url << std::endl;
 
-        // Gọi API điều khiển pipeline
+        // Implementation note.
         int src_id = pipeline_add_camera(url);
 
         if (src_id >= 0) {
@@ -54,7 +54,7 @@ class CameraServiceImpl final : public CameraService::Service {
         int src_id = request->src_id();
         std::cout << "[gRPC] Received request to remove camera: " << src_id << std::endl;
 
-        // Gọi API điều khiển pipeline
+        // Implementation note.
         bool ok = pipeline_remove_camera(src_id);
 
         reply->set_src_id(src_id);
@@ -67,7 +67,7 @@ class CameraServiceImpl final : public CameraService::Service {
                        CameraListResponse* reply) override {
         std::cout << "[gRPC] Received request to list all cameras" << std::endl;
 
-        // Lấy danh sách camera từ pipeline
+        // Implementation note.
         auto cameras = pipeline_list_cameras();
 
         for (const auto& cam : cameras) {
@@ -83,45 +83,45 @@ void RunGrpcServer(const std::string& server_address) {
     CameraServiceImpl service;
 
     ServerBuilder builder;
-    // Lắng nghe trên cổng chỉ định (không dùng mã hóa SSL/TLS)
+    // Implementation note.
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
     builder.RegisterService(&service);
 
     std::unique_ptr<Server> server(builder.BuildAndStart());
     std::cout << "[gRPC] C++ Server listening on " << server_address << std::endl;
 
-    // Chờ cho đến khi server tắt
+    // Implementation note.
     server->Wait();
 }
 
 int main(int argc, char** argv) {
     std::cout << "[MAIN] Starting C++ DeepStream/gRPC Service..." << std::endl;
 
-    // Lấy biến môi trường cho MQTT
+    // Implementation note.
     const char* mqtt_broker_env = std::getenv("MQTT_BROKER");
     std::string mqtt_broker = mqtt_broker_env ? mqtt_broker_env : "127.0.0.1";
 
     const char* mqtt_port_env = std::getenv("MQTT_PORT");
     int mqtt_port = mqtt_port_env ? std::stoi(mqtt_port_env) : 1883;
 
-    // Khởi tạo probe processor (ONNX net & MQTT client)
+    // Implementation note.
     if (!probe_processor_init(mqtt_broker, mqtt_port)) {
         std::cerr << "[MAIN] Probe processor initialization failed. Exiting..." << std::endl;
         return -1;
     }
 
-    // 1. Khởi chạy gRPC Server trong thread riêng
+    // Implementation note.
     std::string server_address("0.0.0.0:50051");
     std::thread grpc_thread(RunGrpcServer, server_address);
 
-    // 2. Khởi chạy GStreamer/DeepStream Pipeline
+    // Implementation note.
     if (!pipeline_init()) {
         std::cerr << "[MAIN] Pipeline initialization failed. Exiting..." << std::endl;
         probe_processor_cleanup();
         return -1;
     }
 
-    // Tự động thêm các camera ban đầu từ biến môi trường RTSP_URLS nếu có
+    // Implementation note.
     const char* rtsp_urls_env = std::getenv("RTSP_URLS");
     if (rtsp_urls_env) {
         std::string urls_str(rtsp_urls_env);
@@ -140,10 +140,10 @@ int main(int argc, char** argv) {
         }
     }
 
-    // 3. Chạy vòng lặp sự kiện pipeline (luồng chính block ở đây)
+    // Implementation note.
     pipeline_run();
 
-    // 4. Giải phóng tài nguyên khi dừng ứng dụng
+    // Implementation note.
     pipeline_stop();
     probe_processor_cleanup();
     grpc_thread.join();

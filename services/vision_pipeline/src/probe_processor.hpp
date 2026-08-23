@@ -2,7 +2,7 @@
 #include <gst/gst.h>
 #include <string>
 
-// Khởi tạo các module Inference và MQTT
+// Implementation note.
 bool probe_processor_init(const std::string& mqtt_broker, int mqtt_port);
 void probe_processor_cleanup();
 

@@ -2,15 +2,15 @@ syntax = "proto3";
 
 package camera;
 
-// Dịch vụ quản lý camera động cho DeepStream C++ Service
+// Dynamic camera management service for the DeepStream C++ service.
 service CameraService {
-    // Thêm camera RTSP mới vào pipeline đang chạy
+    // Add a new RTSP camera to the running pipeline.
     rpc AddCamera (CameraAddRequest) returns (CameraAddResponse);
 
-    // Xóa camera khỏi pipeline bằng ID
+    // Remove a camera from the pipeline by ID.
     rpc RemoveCamera (CameraRemoveRequest) returns (CameraRemoveResponse);
 
-    // Liệt kê danh sách các camera đang active
+    // List currently active cameras.
     rpc ListCameras (CameraListRequest) returns (CameraListResponse);
 }
 

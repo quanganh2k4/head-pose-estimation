@@ -40,3 +40,4 @@ models/peoplenet/resnet34_peoplenet_int8.txt
 docs/project_deep_dive_guide.md
 docs/codebase_line_by_line_architecture_deep_dive.md
 benchmarks/poc_monolithic_pipeline.py
+*.bundle

@@ -31,15 +31,15 @@ try:
 except ImportError:
     HAS_SCRFD_DEPS = False
 
-# Nạp thư viện GStreamer Native
+# Implementation note.
 import gi
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst, GLib
 
-# Fallback nếu không lấy được danh sách camera từ application service
-# (xem fetch_camera_urls). Không nên pull thẳng camera trong production —
-# mỗi lần pull thêm là một kết nối cạnh tranh với deepstream-service trên
-# cùng camera IP.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 CAMERA_RTSP_URLS = {
     "cam0": "rtsp://user:password@192.168.1.10:1904/stream",
     "cam1": "rtsp://user:password@192.168.1.11:1904/stream",
@@ -47,8 +47,7 @@ CAMERA_RTSP_URLS = {
 
 
 def fetch_camera_urls(app_api_url: str) -> dict:
-    """Lấy danh sách camera (đã proxy qua mediamtx) từ application service.
-    Trả về {} nếu thất bại — caller nên fallback về CAMERA_RTSP_URLS."""
+    """Fetch camera URLs from the application service."""
     try:
         r = requests.get(f"{app_api_url}/cameras", timeout=5)
         r.raise_for_status()
@@ -66,9 +65,9 @@ def fetch_camera_urls(app_api_url: str) -> dict:
 # Global thread-safe states
 
 # Frame buffer: {cam_id: deque of (wall_clock_ms, frame)}
-# Giữ ~2 giây frame để tìm frame khớp với timestamp metadata.
+# Implementation note.
 from collections import deque
-FRAME_BUFFER_SIZE = 60  # ~2s ở 30fps
+FRAME_BUFFER_SIZE = 60  # Implementation note.
 frame_buffers: dict = {"cam0": deque(maxlen=FRAME_BUFFER_SIZE),
                        "cam1": deque(maxlen=FRAME_BUFFER_SIZE)}
 frame_locks = {"cam0": threading.Lock(), "cam1": threading.Lock()}
@@ -81,16 +80,16 @@ preview_lock = threading.Lock()
 
 stop_event = threading.Event()
 
-# Offset ước lượng giữa đồng hồ Jetson và wall-clock laptop (ms).
-# Dương = Jetson chạy trước laptop. Điều chỉnh qua --pipeline-delay.
+# Implementation note.
+# Implementation note.
 #
-# QUAN TRỌNG: "ts" trong metadata giờ lấy từ NvDsFrameMeta.ntp_timestamp (nvstreammux
-# gắn ngay lúc nhận frame từ camera), KHÔNG còn cộng dồn độ trễ inference FaceMesh như
-# trước — nên giá trị bù cần thiết giờ nhỏ hơn nhiều (chủ yếu là network+MQTT, ~20-60ms
-# thay vì ~150ms). Giá trị mặc định dưới đây CHỈ chính xác nếu Jetson và laptop đã NTP
-# sync đồng hồ (`timedatectl set-ntp true` trên cả 2 máy, cùng NTP server) — nếu chưa
-# sync, chênh lệch đồng hồ 2 máy sẽ cộng thêm vào đây và giá trị "đúng" sẽ khác hẳn,
-# phải tự dò bằng --pipeline-delay cho tới khi bbox không còn lệch mặt khi di chuyển.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 PIPELINE_DELAY_MS: float = 60.0
 
 
@@ -103,9 +102,9 @@ except Exception:
 FACE_3D_MODEL = np.array([
     [  0.0,    0.0,   50.0],   # nose tip
     [  0.0, -115.0,  -35.0],   # chin
-    [-48.0,   35.0,  -25.0],   # left eye (trung điểm 2 khóe mắt)
+    [-48.0,   35.0,  -25.0],   # Implementation note.
     [ 48.0,   35.0,  -25.0],   # right eye
-    [  0.0,   20.0,    5.0],   # nose bridge (giữa 2 mắt)
+    [  0.0,   20.0,    5.0],   # Implementation note.
     [-70.0,   30.0,  -40.0],   # left cheek
     [ 70.0,   30.0,  -40.0],   # right cheek
 ], dtype=np.float64)
@@ -170,7 +169,7 @@ class SCRFDProcess(multiprocessing.get_context("spawn").Process):
                 # Run inference
                 dets, kps_all = detector.detect(frame, thr=0.35, nms=0.4)
                 
-                # Debug: in số mặt phát hiện được mỗi 10 frame
+                # Implementation note.
                 if frame_count % 10 == 1:
                     print(f"[SCRFD Process] Frame {frame_count}: cam={cam}, detected {len(dets)} faces")
                 
@@ -364,25 +363,25 @@ class OneEuroFilter:
         self.dx_prev = 0.0
 
     def __call__(self, t, x):
-        dt = (t - self.t_prev) / 1000.0  # Chuyển sang giây
+        dt = (t - self.t_prev) / 1000.0  # Implementation note.
         if dt <= 0.0:
             return self.x_prev
         
-        # Tính toán đạo hàm
+        # Implementation note.
         dx = (x - self.x_prev) / dt
         
-        # Lọc đạo hàm
+        # Implementation note.
         alpha_d = self._alpha(dt, self.d_cutoff)
         dx_hat = alpha_d * dx + (1.0 - alpha_d) * self.dx_prev
         
-        # Cắt tần số tự động điều chỉnh theo vận tốc thay đổi
+        # Implementation note.
         cutoff = self.min_cutoff + self.beta * abs(dx_hat)
         
-        # Lọc giá trị tín hiệu
+        # Implementation note.
         alpha_x = self._alpha(dt, cutoff)
         x_hat = alpha_x * x + (1.0 - alpha_x) * self.x_prev
         
-        # Lưu vết trạng thái
+        # Implementation note.
         self.x_prev = x_hat
         self.t_prev = t
         self.dx_prev = dx_hat
@@ -394,29 +393,29 @@ class OneEuroFilter:
         return 1.0 / (1.0 + tau / dt)
 
 
-# ── Phân tích và phát hiện mốc bất thường ─────────────────────────────────────
+# Implementation note.
 def validate_landmarks(pts):
     """
     pts: Nx2 array of landmarks [nose, chin, left_eye, right_eye, bridge]
-    Trả về: (active_mask, confidence)
+    Documentation for this component.
     """
     pts = np.asarray(pts, dtype=np.float64)[:, :2]
     
-    # 5 điểm indices: 0: nose, 1: chin, 2: left_eye, 3: right_eye, 4: bridge
+    # Implementation note.
     d_eyes = np.linalg.norm(pts[2] - pts[3])
     d_nose_chin = np.linalg.norm(pts[0] - pts[1])
     d_left_bridge = np.linalg.norm(pts[2] - pts[4])
     d_right_bridge = np.linalg.norm(pts[3] - pts[4])
     
-    # Kiểm tra 1: Che miệng/cằm (d_nose_chin so với d_eyes)
+    # Implementation note.
     ratio_chin = d_nose_chin / (d_eyes + 1e-8)
     chin_ok = 0.7 <= ratio_chin <= 3.5
     
-    # Kiểm tra 2: Quay mặt nghiêng quá sâu (mắt tiến sát sống mũi)
+    # Implementation note.
     left_eye_ok = d_left_bridge > 0.15 * d_eyes
     right_eye_ok = d_right_bridge > 0.15 * d_eyes
     
-    active_mask = [0, 4]  # Mũi và sống mũi luôn luôn là neo cứng đáng tin cậy
+    active_mask = [0, 4]  # Implementation note.
     if chin_ok:
         active_mask.append(1)
     if left_eye_ok:
@@ -424,7 +423,7 @@ def validate_landmarks(pts):
     if right_eye_ok:
         active_mask.append(3)
         
-    # Bảo đảm tối thiểu 3 điểm không thẳng hàng để giải PnP
+    # Implementation note.
     if len(active_mask) < 3:
         if d_left_bridge > d_right_bridge:
             active_mask = [0, 2, 4]
@@ -487,26 +486,26 @@ def _rotation_from_matrix_gs(R_raw):
 def estimate_pose_spherical_morphing(m_points_2d, eta=1.77, initial_v=None,
                                       model_3d=PAPER_3D_MODEL, active_mask=[0, 1, 2, 3, 4]):
     """
-    Hỗ trợ giải tối ưu trên tập con động thông qua active_mask.
+    Documentation for this component.
     """
     if _scipy_minimize is None:
-        raise RuntimeError("scipy chưa cài — cần cho spherical morphing (L-BFGS-B)")
+        raise RuntimeError("scipy is not installed; spherical morphing requires L-BFGS-B")
         
-    # Tính toán thông số cầu trên mô hình đầy đủ 5 điểm để giữ vững cấu hình gốc
+    # Implementation note.
     M_full_norm, _ = _normalize_by_centroid(model_3d)
     x0, y0, z0, l = solve_sphere(M_full_norm)
     n_full = M_full_norm.shape[0]
     phi_full = np.array([math.acos(max(min((M_full_norm[i, 2]-z0)/(l+1e-8), 1.), -1.)) for i in range(n_full)])
     theta_full = np.array([math.atan2(M_full_norm[i, 1]-y0, M_full_norm[i, 0]-x0) for i in range(n_full)])
 
-    # Lọc ra các điểm mốc và mô hình con theo active_mask
+    # Implementation note.
     m_points_2d = np.asarray(m_points_2d, dtype=np.float64)[:, :2]
     m_active = m_points_2d[active_mask]
     m_norm, m0 = _normalize_by_centroid(np.hstack([m_active, np.zeros((len(m_active), 1))]))
     
     M_active_norm = M_full_norm[active_mask]
     
-    # Giải sơ bộ ma trận xoay
+    # Implementation note.
     R1_raw, _, _, _ = np.linalg.lstsq(M_active_norm, m_norm, rcond=None)
     R1_2d = R1_raw.T
 
@@ -516,7 +515,7 @@ def estimate_pose_spherical_morphing(m_points_2d, eta=1.77, initial_v=None,
         mp_[1] += v[1]  # chin
         mp_[2] += v[2]  # left eye
         mp_[3] += v[2]  # right eye
-        # index 4 (bridge) giữ cố định
+        # Implementation note.
         
         mt[2] += v[3]  # left eye
         mt[3] -= v[3]  # right eye
@@ -535,18 +534,18 @@ def estimate_pose_spherical_morphing(m_points_2d, eta=1.77, initial_v=None,
                            options={'maxiter': 8, 'ftol': 1e-8, 'gtol': 1e-5})
     _, Mm_active_opt, Mm_full_opt = _morph(res.x)
     
-    # Giải ma trận xoay tối ưu dựa trên phân bổ thực tế của các điểm hoạt động
+    # Implementation note.
     R_opt_raw, _, _, _ = np.linalg.lstsq(Mm_active_opt, m_norm, rcond=None)
     pitch, yaw, roll, R = _rotation_from_matrix_gs(R_opt_raw.T)
     
-    # Ràng buộc góc xoay Yaw nếu một bên mắt bị khuất (Yaw Bound Constraint)
+    # Implementation note.
     if 2 not in active_mask and 3 in active_mask:
-        # Mắt trái bị che khuất -> Đầu quay sang phải (yaw dương)
+        # Implementation note.
         if yaw < 5.0:
             yaw = max(5.0, abs(yaw))
             R = _euler_to_rotation_matrix(pitch, yaw, roll)
     elif 3 not in active_mask and 2 in active_mask:
-        # Mắt phải bị che khuất -> Đầu quay sang trái (yaw âm)
+        # Implementation note.
         if yaw > -5.0:
             yaw = min(-5.0, -abs(yaw))
             R = _euler_to_rotation_matrix(pitch, yaw, roll)
@@ -564,7 +563,7 @@ class SphericalHeadPoseEstimator:
         self._v = None
         self._smooth_pts = None
         
-        # Bộ lọc One-Euro Filters thích ứng động cho góc Pose và tham số v
+        # Implementation note.
         self.filter_pitch = None
         self.filter_yaw = None
         self.filter_roll = None
@@ -573,14 +572,14 @@ class SphericalHeadPoseEstimator:
 
     def update_points(self, m_pts, ts_ms=None):
         """
-        Cập nhật landmarks, tự động phân tích và áp dụng One-Euro Filter động.
+        Documentation for this component.
         """
         m_pts = np.asarray(m_pts, dtype=np.float64)[:, :2]
         
-        # 1. Phát hiện điểm mốc bất thường bằng Geometric Consistency
+        # Implementation note.
         active_mask, confidence = validate_landmarks(m_pts)
         
-        # 2. Làm mượt điểm mốc đầu vào
+        # Implementation note.
         if self._smooth_pts is None:
             self._smooth_pts = m_pts.copy()
         
@@ -588,15 +587,15 @@ class SphericalHeadPoseEstimator:
         self._smooth_pts = a * m_pts + (1. - a) * self._smooth_pts
         pts = self._smooth_pts
 
-        # 3. Tính toán góc quay bằng Spherical Morphing
+        # Implementation note.
         pitch, yaw, roll, solved_v, R = estimate_pose_spherical_morphing(
             pts, eta=self.eta, initial_v=self._v, model_3d=self.model_3d, active_mask=active_mask)
 
-        # 4. Sử dụng bộ lọc One-Euro Filter làm mượt thích ứng
+        # Implementation note.
         t = ts_ms if ts_ms is not None else (time.time() * 1000.0)
         
         if self.t_prev is None or (t - self.t_prev) <= 0.0:
-            # Khởi tạo giá trị ban đầu cho các bộ lọc
+            # Implementation note.
             self.filter_pitch = OneEuroFilter(t, pitch, min_cutoff=0.8, beta=0.015)
             self.filter_yaw = OneEuroFilter(t, yaw, min_cutoff=0.8, beta=0.015)
             self.filter_roll = OneEuroFilter(t, roll, min_cutoff=1.5, beta=0.01)
@@ -607,19 +606,19 @@ class SphericalHeadPoseEstimator:
             self._v = solved_v
             self.t_prev = t
         else:
-            # Lọc góc quay đầu ra
+            # Implementation note.
             pitch = self.filter_pitch(t, pitch)
             yaw = self.filter_yaw(t, yaw)
             roll = self.filter_roll(t, roll)
             
-            # Lọc tham số hình học v
+            # Implementation note.
             filtered_v = np.empty(4)
             for idx in range(4):
                 filtered_v[idx] = self.filter_v[idx](t, solved_v[idx])
             self._v = filtered_v
             self.t_prev = t
 
-        # Tái dựng lại ma trận xoay mượt mà cuối cùng
+        # Implementation note.
         R_smooth = _euler_to_rotation_matrix(pitch, yaw, roll)
         
         return {
@@ -644,11 +643,11 @@ _pose_estimators_spherical = {}
 
 def get_frame_for_metadata(cam_id: str, meta_ts_ms: float):
     """
-    Tìm frame trong buffer có wall-clock timestamp gần nhất với
-    (meta_ts_ms + PIPELINE_DELAY_MS). PIPELINE_DELAY_MS bù cho:
-      - Thời gian DeepStream xử lý trên Jetson (decode + TRT ~50-150ms)
-      - Latency mạng MQTT (~1-5ms)
-      - Chênh lệch đồng hồ giữa Jetson và laptop
+    Documentation for this component.
+    Documentation for this component.
+      Documentation for this component.
+      Documentation for this component.
+      Documentation for this component.
     """
     target_ts = meta_ts_ms + PIPELINE_DELAY_MS
     with frame_locks[cam_id]:
@@ -657,7 +656,7 @@ def get_frame_for_metadata(cam_id: str, meta_ts_ms: float):
     if not buf:
         return None, None
 
-    # Tìm frame có timestamp gần target_ts nhất
+    # Implementation note.
     best_idx = min(range(len(buf)), key=lambda i: abs(buf[i][0] - target_ts))
     best_ts, best_frame = buf[best_idx]
     return best_frame, best_ts
@@ -687,7 +686,7 @@ def rtsp_capture_worker(cam_id, rtsp_url):
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             continue
 
-        # Đánh dấu wall-clock timestamp ngay khi đọc được frame
+        # Implementation note.
         wall_ms = time.time() * 1000.0
         with frame_locks[cam_id]:
             frame_buffers[cam_id].append((wall_ms, frame))
@@ -696,13 +695,13 @@ def rtsp_capture_worker(cam_id, rtsp_url):
     print(f"[RTSP] Capture thread for {cam_id} stopped.")
 
 
-# ── RTSP capture qua GStreamer (thay thế OpenCV) ────────────────────────────────
-# Khác biệt cốt lõi so với OpenCV: mỗi GstBuffer có PTS thật (thời điểm trình bày,
-# tính từ RTP timestamp của chính stream), không phải "giờ lúc code đọc xong frame"
-# như time.time() trong rtsp_capture_worker(). PTS neo vào wall-clock 1 lần ở frame
-# đầu tiên (giống hệt cách nvstreammux/ntp_timestamp bên Jetson hoạt động), sau đó
-# suy ra giờ mỗi frame từ độ trôi PTS — không phụ thuộc jitter lúc code Python được
-# CPU/OS lập lịch chạy, vốn là nguồn gây "giật cục" chính khi dùng OpenCV.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 def gst_capture_worker(cam_id, rtsp_url):
     try:
         import gi
@@ -721,15 +720,15 @@ def gst_capture_worker(cam_id, rtsp_url):
     Gst.init(None)
     print(f"[GST] Starting capture pipeline for {cam_id}...")
 
-    # decodebin tự chọn decoder phù hợp có sẵn trên máy (hardware nếu có, software
-    # nếu không) — không hardcode nvh265dec/d3d11h265dec vì máy chạy viewer có thể
-    # không phải Jetson. max-buffers=1 drop=true: luôn lấy frame mới nhất, không xếp
-    # hàng đợi làm tăng trễ.
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
     #
-    # Trên Jetson, decodebin thường tự chọn nvv4l2decoder (decoder phần cứng), xuất
-    # ra bộ nhớ NVMM đặc thù mà videoconvert chuẩn KHÔNG đọc được ("not negotiated").
-    # Cần bắc cầu qua nvvideoconvert trước. Trên máy không phải Jetson (Windows/PC
-    # thường), nvvideoconvert không tồn tại nên bỏ qua, dùng videoconvert như cũ.
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
     has_nvvidconv = Gst.ElementFactory.find("nvvideoconvert") is not None
     convert_chain = "nvvideoconvert ! video/x-raw,format=BGRx ! videoconvert" if has_nvvidconv else "videoconvert"
     pipeline_str = (
@@ -761,7 +760,7 @@ def gst_capture_worker(cam_id, rtsp_url):
 
         pts_ns = buf.pts
         if pts_ns is None or pts_ns == Gst.CLOCK_TIME_NONE:
-            wall_ms = time.time() * 1000.0  # fallback nếu buffer không có PTS hợp lệ
+            wall_ms = time.time() * 1000.0  # Implementation note.
         else:
             if anchor["pts_ns"] is None:
                 anchor["wall_ms"] = time.time() * 1000.0
@@ -876,7 +875,7 @@ class StreamingHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        pass  # Tắt log mỗi request để tránh spam terminal
+        pass  # Implementation note.
 
 
 class ThreadedHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
@@ -910,7 +909,7 @@ def draw_overlay(frame, metadata, cam_id=""):
 
         rx1, ry1, rx2, ry2 = x1, y1, x2, y2
 
-        # Bounding box (Màu xanh lá truyền thống, nét dày = 2)
+        # Implementation note.
         cv2.rectangle(frame, (rx1, ry1), (rx2, ry2), (0, 255, 0), 2)
         
         # Details
@@ -922,13 +921,13 @@ def draw_overlay(frame, metadata, cam_id=""):
         if pts is not None:
             key = (cam_id, person_id)
             
-            # Helper lật trục Y cho khớp với hệ tọa độ 3D mẫu
+            # Implementation note.
             def pt(name):
                 v = np.array(pts[name], dtype=np.float64)
                 v[1] = -v[1]
                 return v
 
-            # Tính toán theo thuật toán Spherical Morphing (5 điểm 2D) nếu scipy khả dụng
+            # Implementation note.
             if _scipy_minimize is not None:
                 est_s = _pose_estimators_spherical.get(key)
                 if est_s is None:
@@ -948,14 +947,14 @@ def draw_overlay(frame, metadata, cam_id=""):
                 except Exception as ex:
                     pass
 
-        # Đếm landmarks (Không vẽ các chấm vàng landmark theo yêu cầu)
+        # Implementation note.
         num_landmarks = 0
         if pts is not None:
             for name, coords in pts.items():
                 if isinstance(coords, (list, tuple)) and len(coords) >= 2:
                     num_landmarks += 1
 
-        # Vẽ nhãn thông số (ID, LMs, Yaw, Pitch)
+        # Implementation note.
         label_y = max(25, ry1 - 10)
         label_text = f"ID:{person_id} LMs:{num_landmarks}"
         if _scipy_minimize is None:
@@ -969,22 +968,22 @@ def draw_overlay(frame, metadata, cam_id=""):
         cv2.putText(frame, label_text, (rx1, label_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2, cv2.LINE_AA)
 
-        # Vẽ mũi tên hướng nhìn Spherical (Màu sắc động theo độ tin cậy, nét dày = 4, dài)
+        # Implementation note.
         if gaze_s is not None:
             gx, gy, gz = gaze_s
             ox = int((rx1 + rx2) / 2)
             oy = int((ry1 + ry2) / 2)
-            cv2.circle(frame, (ox, oy), 5, (0, 255, 255), -1)  # Tâm màu vàng
+            cv2.circle(frame, (ox, oy), 5, (0, 255, 255), -1)  # Implementation note.
             
             box_width = rx2 - rx1
             gaze_scale = max(100, box_width * 1.0)
             ex = int(ox + gx * gaze_scale)
             ey = int(oy + gy * gaze_scale)
             
-            # Xác định màu sắc động dựa trên confidence:
-            # 1.0 (đầy đủ) -> Đỏ (0, 0, 255)
-            # 0.8 (mất 1 điểm) -> Vàng (0, 255, 255)
-            # 0.6 hoặc thấp hơn (mất nhiều điểm) -> Cam (0, 140, 255)
+            # Implementation note.
+            # Implementation note.
+            # Implementation note.
+            # Implementation note.
             arrow_color = (0, 0, 255)
             if conf_s is not None:
                 if abs(conf_s - 0.8) < 0.05:
@@ -1040,8 +1039,8 @@ def main():
     # Identify which camera channels to activate
     active_cams = ["cam0", "cam1"] if args.camera == "all" else [args.camera]
 
-    # Lấy URL camera qua mediamtx (single pull point) từ application service;
-    # fallback về CAMERA_RTSP_URLS hardcoded (pull thẳng camera) nếu không lấy được.
+    # Implementation note.
+    # Implementation note.
     fetched = fetch_camera_urls(args.app_api)
     camera_urls = dict(CAMERA_RTSP_URLS)
     camera_urls.update(fetched)
@@ -1078,7 +1077,7 @@ def main():
         scrfd_in_q = multiprocessing.Queue(maxsize=2)
         scrfd_out_q = multiprocessing.Queue()
 
-        # Tìm engine theo thứ tự: arg > cùng thư mục script > headpose-cameraIP > thư mục hiện tại
+        # Implementation note.
         if args.scrfd_engine:
             engine_path = args.scrfd_engine
         else:
@@ -1113,16 +1112,16 @@ def main():
     
     last_rendered_ts = {cam: -1 for cam in active_cams}
     display_frames = {cam: None for cam in active_cams}
-    # Cache kết quả nhận diện SCRFD mới nhất để overlay lên frame thô mới nhất
+    # Implementation note.
     last_scrfd_dets = {cam: (np.empty((0,5)), np.empty((0,10))) for cam in active_cams}
 
     try:
         while True:
-            # Lấy metadata snapshot
+            # Implementation note.
             with metadata_lock:
                 metas = {cam: latest_metadatas[cam] for cam in active_cams}
 
-            # Lấy frame mới nhất hoặc frame khớp với timestamp metadata
+            # Implementation note.
             for cam in active_cams:
                 if args.scrfd:
                     with frame_locks[cam]:
@@ -1130,19 +1129,19 @@ def main():
                         if buf:
                             ts, frame = buf[-1]
                             if ts != last_rendered_ts[cam]:
-                                # Push frame mới nhất vào hàng đợi cho tiến trình SCRFD xử lý
+                                # Implementation note.
                                 try:
                                     scrfd_in_q.put((cam, ts, frame), block=False)
                                 except queue.Full:
                                     pass
                                 last_rendered_ts[cam] = ts
                                 
-                                # Luôn vẽ frame thô mới nhất + overlay detection cũ nhất có sẵn
+                                # Implementation note.
                                 draw_frame = frame.copy()
                                 dets, kps_all = last_scrfd_dets[cam]
                                 if len(dets) > 0:
                                     draw_scrfd_overlay(draw_frame, dets, kps_all, pose_caches[cam])
-                                # Hiển thị trạng thái SCRFD trên video
+                                # Implementation note.
                                 status = f"SCRFD: {len(dets)} face(s)"
                                 cv2.putText(draw_frame, status, (10, 30),
                                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
@@ -1164,7 +1163,7 @@ def main():
                                 draw_overlay(draw_frame, None, cam_id=cam)
                                 display_frames[cam] = draw_frame
 
-            # Cập nhật cache kết quả nhận diện SCRFD mới nhất (không block)
+            # Implementation note.
             if args.scrfd:
                 while True:
                     try:
@@ -1173,18 +1172,18 @@ def main():
                     except queue.Empty:
                         break
 
-            # Đợi đến khi có ít nhất một frame sẵn sàng để hiển thị
+            # Implementation note.
             has_any = any(display_frames[cam] is not None for cam in active_cams)
             if not has_any:
                 time.sleep(0.02)
                 continue
 
-            # Ghép khung hình kết quả
+            # Implementation note.
             if args.camera == "all":
                 f0 = display_frames.get("cam0")
                 f1 = display_frames.get("cam1")
                 
-                target_h, target_w = 540, 960  # Đưa về độ phân giải chuẩn của giao diện
+                target_h, target_w = 540, 960  # Implementation note.
                 
                 if f0 is not None:
                     f0_resized = cv2.resize(f0, (target_w, target_h))
@@ -1200,7 +1199,7 @@ def main():
                     cv2.putText(f1_resized, "Camera 1 offline", (300, 270),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                                 
-                # Ghép ngang 2 camera
+                # Implementation note.
                 composite_frame = np.hstack((f0_resized, f1_resized))
             else:
                 composite_frame = display_frames.get(args.camera)
@@ -1235,10 +1234,10 @@ def main():
         print("\nStopping Gaze Viewer...")
     finally:
         stop_event.set()
-        # Dừng tiến trình SCRFD phụ sạch sẽ
+        # Implementation note.
         if scrfd_proc is not None and scrfd_proc.is_alive():
             try:
-                scrfd_in_q.put(None, timeout=1)  # Gửi tín hiệu dừng
+                scrfd_in_q.put(None, timeout=1)  # Implementation note.
             except Exception:
                 pass
             scrfd_proc.terminate()

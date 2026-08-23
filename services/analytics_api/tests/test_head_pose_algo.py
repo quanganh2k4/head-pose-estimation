@@ -1,10 +1,9 @@
 """
-Unit tests cho modules/head_pose_algo.py — chạy được trên máy bất kỳ (chỉ cần
-numpy/scipy, không cần GPU/DeepStream) nên dùng làm CI check cho phần thuật toán.
+Unit tests for modules/head_pose_algo.py. They run on any machine with numpy and
+scipy, without GPU/DeepStream, and are used as the algorithm CI check.
 
-Chiến lược test chính: chiếu trực giao mô hình 3D chuẩn (PAPER_3D_MODEL) đã xoay
-một góc yaw/pitch biết trước xuống mặt phẳng 2D, đưa các điểm 2D đó vào estimator
-và kiểm tra góc ước lượng ra có đúng dấu và đúng cỡ độ lớn hay không.
+The main strategy projects the standard PAPER_3D_MODEL at known yaw/pitch angles
+onto 2D, feeds those points to the estimator, and checks sign and magnitude.
 """
 import os
 import sys
@@ -26,7 +25,7 @@ from modules.head_pose_algo import (  # noqa: E402
 
 
 def project_model(pitch=0.0, yaw=0.0, roll=0.0):
-    """Chiếu trực giao mô hình 3D đã xoay xuống 2D (bỏ trục Z)."""
+    """Orthographically project a rotated 3D model onto 2D, dropping Z."""
     R = _euler_to_rotation_matrix(pitch, yaw, roll)
     rotated = PAPER_3D_MODEL @ R.T
     return rotated[:, :2]
@@ -54,8 +53,8 @@ def test_one_euro_reduces_noise_variance():
 
 def test_one_euro_non_positive_dt_returns_previous():
     f = OneEuroFilter(t0=100.0, x0=1.0)
-    assert f(100.0, 99.0) == pytest.approx(1.0)   # dt = 0 → giữ giá trị cũ
-    assert f(50.0, 99.0) == pytest.approx(1.0)    # dt < 0 → giữ giá trị cũ
+    assert f(100.0, 99.0) == pytest.approx(1.0)   # dt = 0: keep the old value
+    assert f(50.0, 99.0) == pytest.approx(1.0)    # dt < 0: keep the old value
 
 
 # ── validate_landmarks (Geometric Consistency Check) ────────────────────────
@@ -67,16 +66,16 @@ def test_validate_landmarks_frontal_face_all_points_active():
 
 def test_validate_landmarks_occluded_eye_is_dropped():
     pts = project_model(0.0, 0.0, 0.0).copy()
-    pts[2] = pts[4]  # mắt trái trùng sống mũi — nghiêng sâu / landmark hỏng
+    pts[2] = pts[4]  # left eye overlaps bridge: severe profile / invalid landmark
     active_mask, confidence = validate_landmarks(pts)
     assert 2 not in active_mask
     assert confidence < 1.0
 
 def test_validate_landmarks_always_at_least_three_points():
     pts = project_model(0.0, 0.0, 0.0).copy()
-    pts[1] = pts[0]  # cằm hỏng
-    pts[2] = pts[4]  # mắt trái hỏng
-    pts[3] = pts[4]  # mắt phải hỏng
+    pts[1] = pts[0]  # invalid chin
+    pts[2] = pts[4]  # invalid left eye
+    pts[3] = pts[4]  # invalid right eye
     active_mask, _ = validate_landmarks(pts)
     assert len(active_mask) >= 3
 
@@ -103,7 +102,7 @@ def test_estimate_recovers_pitch_sign(true_pitch):
     assert np.sign(pitch) == np.sign(true_pitch)
 
 
-# ── SphericalHeadPoseEstimator (pipeline đầy đủ: validate + morphing + filter) ─
+# ── SphericalHeadPoseEstimator (full validation + morphing + filtering pipeline) ─
 def test_estimator_stable_on_static_frontal_face():
     est = SphericalHeadPoseEstimator()
     rng = np.random.default_rng(7)
@@ -113,7 +112,7 @@ def test_estimator_stable_on_static_frontal_face():
         noisy = pts_base + rng.normal(0.0, 0.5, size=pts_base.shape)
         pose = est.update_points(noisy, ts_ms=float(i * 33))
         yaws.append(pose["yaw"])
-    # 10 frame cuối (sau khi filter ổn định) phải gần 0 và ít rung
+    # The final 10 frames should be near zero with little jitter after filtering.
     tail = np.array(yaws[-10:])
     assert np.all(np.abs(tail) < 6.0)
     assert np.std(tail) < 1.5
@@ -124,7 +123,7 @@ def test_estimator_tracks_head_turn():
         est.update_points(project_model(yaw=0.0), ts_ms=float(i * 33))
     pose = None
     for i in range(15, 60):
-        # Quay đầu dần sang 30° trong ~0.5s rồi giữ nguyên
+        # Turn the head gradually to 30 degrees for about 0.5 seconds, then hold.
         target = min(30.0, (i - 14) * 2.0)
         pose = est.update_points(project_model(yaw=target), ts_ms=float(i * 33))
     assert pose["yaw"] > 15.0
@@ -134,7 +133,7 @@ def test_estimator_returns_rotation_matrix_and_confidence():
     pose = est.update_points(project_model(yaw=10.0), ts_ms=0.0)
     R = pose["R_smooth"]
     assert R.shape == (3, 3)
-    # R phải là ma trận xoay hợp lệ (trực giao, det ≈ 1)
+    # R must be a valid rotation matrix (orthogonal, determinant approximately 1).
     assert np.allclose(R @ R.T, np.eye(3), atol=1e-6)
     assert np.linalg.det(R) == pytest.approx(1.0, abs=1e-6)
     assert 0.0 < pose["confidence"] <= 1.0

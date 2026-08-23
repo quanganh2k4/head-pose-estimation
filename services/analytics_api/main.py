@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-application/main.py — Application Service (python:3.10-slim, không cần GPU)
-Chức năng:
+Documentation for this component.
+Documentation for this component.
   - Subscribe MQTT: gaze/+/metadata → business logic
   - REST API (FastAPI): proxy camera management → deepstream service
   - Dashboard data endpoint
-  - Log shipper đến VPS
+  Documentation for this component.
 """
 import os
 import json
@@ -37,16 +37,16 @@ APP_PORT               = int(os.environ.get("APP_PORT", "8080"))
 LOG_SERVER_URL         = os.environ.get("LOG_SERVER_URL", "")
 DEVICE_ID              = os.environ.get("DEVICE_ID", "jetson-edge")
 MEDIAMTX_API           = os.environ.get("MEDIAMTX_API", "http://127.0.0.1:9997")
-# Dùng cho deepstream-service (cùng host, network_mode: host) khi gọi AddCamera
+# Implementation note.
 MEDIAMTX_RTSP_HOST     = os.environ.get("MEDIAMTX_RTSP_HOST", "127.0.0.1:8554")
-# Dùng cho viewer bên ngoài (ví dụ gaze_viewer.py chạy trên laptop khác) — phải là
-# IP/hostname LAN thật của Jetson, KHÔNG phải 127.0.0.1
+# Implementation note.
+# Implementation note.
 MEDIAMTX_PUBLIC_RTSP_HOST = os.environ.get("MEDIAMTX_PUBLIC_RTSP_HOST", MEDIAMTX_RTSP_HOST)
-# WebRTC (WHEP) — browser trên laptop kết nối thẳng vào mediamtx, không qua application
+# Implementation note.
 MEDIAMTX_PUBLIC_WEBRTC_HOST = os.environ.get("MEDIAMTX_PUBLIC_WEBRTC_HOST",
                                               MEDIAMTX_PUBLIC_RTSP_HOST.split(":")[0] + ":8889")
 CAMERA_URLS            = [u for u in os.environ.get("CAMERA_URLS", "").split(",") if u]
-# Hệ thống chạy duy nhất phương pháp gốc Spherical Morphing của bài báo.
+# Implementation note.
 
 # ── gRPC Client setup ─────────────────────────────────────────────────────────────
 _grpc_channel = grpc.insecure_channel(DEEPSTREAM_GRPC_SERVER)
@@ -67,9 +67,9 @@ ALERT_DURATION_S   = float(os.environ.get("ALERT_DURATION_S", "3.0"))
 _alert_tracker: dict = defaultdict(lambda: {"count": 0, "since": 0.0, "fired": False})
 # Track SphericalHeadPoseEstimator instance per (cam, person)
 _pose_estimators: dict = {}
-# Người rời khỏi khung hình thì tracker cấp object_id mới — estimator/tracker của
-# id cũ sẽ không bao giờ được dùng lại. Dọn định kỳ để không rò rỉ bộ nhớ khi
-# hệ thống chạy dài ngày với nhiều người qua lại.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 _state_last_seen: dict = {}   # {(cam_id, person_id): monotonic_ts}
 _STATE_TTL_S       = 60.0
 _PURGE_INTERVAL_S  = 30.0
@@ -89,9 +89,9 @@ def _purge_stale_state():
         _alert_tracker.pop(key, None)
 
 # ── WebSocket relay (cho viewer WebRTC/WHEP, Phase 3) ──────────────────────────────
-# MQTT callback (_on_message) chạy trên thread riêng của paho-mqtt, không phải asyncio
-# event loop của uvicorn — cần asyncio.run_coroutine_threadsafe để gửi qua WebSocket
-# một cách an toàn giữa 2 thread.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 _ws_clients: dict = defaultdict(set)  # {cam_id: set of WebSocket}
 _ws_lock = threading.Lock()
 _main_loop: asyncio.AbstractEventLoop = None
@@ -178,16 +178,16 @@ def _on_message(client, userdata, msg):
                 _state_last_seen[key] = time.monotonic()
                 estimator = _pose_estimators.get(key)
                 if estimator is None:
-                    # Chạy duy nhất thuật toán Spherical Morphing của bài báo gốc
+                    # Implementation note.
                     estimator = SphericalHeadPoseEstimator(smooth_alpha=0.20, point_alpha=0.65)
                     _pose_estimators[key] = estimator
 
                 def pt(name):
                     v = np.array(pts[name], dtype=np.float64)
-                    v[1] = -v[1]  # ảnh Y hướng xuống, model Y hướng lên
+                    v[1] = -v[1]  # Implementation note.
                     return v
                 try:
-                    # Phương pháp gốc bài báo: 5 điểm 2D (bỏ Z), khớp với PAPER_3D_MODEL
+                    # Implementation note.
                     m_pts = np.vstack([pt("nose"), pt("chin"), pt("left_eye"), pt("right_eye"), pt("bridge")])
 
                     pose = estimator.update_points(m_pts, ts_ms=payload.get("ts"))
@@ -201,7 +201,7 @@ def _on_message(client, userdata, msg):
                     det["gaze"] = [round(float(R[0,2]), 3), round(-float(R[1,2]), 3), round(float(R[2,2]), 3)]
                     det["conf"] = round(float(conf), 2)
 
-                    # In log rõ ràng cho thuật toán bao gồm confidence
+                    # Implementation note.
                     print(f"[MP:spherical] cam={cam_id} obj={person_id} yaw={yaw:+.1f} pitch={pitch:+.1f} conf={conf:.1f}")
                 except Exception as ex:
                     print(f"[ERROR] Pose estimation failed for cam={cam_id} obj={person_id}: {ex}")
@@ -244,7 +244,7 @@ async def ws_gaze(websocket: WebSocket, cam_id: str):
         _ws_clients[cam_id].add(websocket)
     try:
         while True:
-            # Không cần dữ liệu từ client, chỉ giữ kết nối sống và phát hiện khi đóng.
+            # Implementation note.
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
@@ -255,7 +255,7 @@ async def ws_gaze(websocket: WebSocket, cam_id: str):
 
 @api.get("/config")
 def get_config():
-    """Cấu hình cho frontend viewer (WHEP host, v.v.) — tránh hardcode trong JS."""
+    """Configuration for the frontend viewer."""
     return {"mediamtx_webrtc_host": MEDIAMTX_PUBLIC_WEBRTC_HOST}
 
 
@@ -296,16 +296,16 @@ def get_alerts(limit: int = 50):
 
 
 # ── MediaMTX camera routing ─────────────────────────────────────────────────────
-# mediamtx là điểm pull RTSP DUY NHẤT từ camera thật. Trước khi deepstream-service
-# nhận một camera, ta đăng ký path tương ứng trên mediamtx rồi đưa nó URL đã proxy
-# (rtsp://mediamtx:8554/<path>) thay vì URL camera gốc — tránh camera bị pull 2 lần
-# (DeepStream + bất kỳ viewer nào khác) và tránh cạn kết nối đồng thời trên camera.
+# Implementation note.
+# Implementation note.
+# Implementation note.
+# Implementation note.
 _camera_mediamtx_paths: dict = {}  # {src_id: mediamtx_path_name}
 
 
 def _mediamtx_path_name(url: str) -> str:
-    # Tên path phải ổn định theo URL (idempotent khi add lại cùng 1 camera) và
-    # không lộ credential ra ngoài (path name không chứa user/pass của URL gốc).
+    # Implementation note.
+    # Implementation note.
     return "cam_" + hashlib.md5(url.encode("utf-8")).hexdigest()[:10]
 
 
@@ -315,7 +315,7 @@ def _mediamtx_register(path_name: str, source_url: str) -> bool:
         r = requests.post(f"{MEDIAMTX_API}/v3/config/paths/add/{path_name}", json=body, timeout=5)
         if r.status_code < 300:
             return True
-        # Path đã tồn tại từ lần add trước (ví dụ application restart) → cập nhật lại.
+        # Implementation note.
         r = requests.patch(f"{MEDIAMTX_API}/v3/config/paths/patch/{path_name}", json=body, timeout=5)
         return r.status_code < 300
     except requests.RequestException as e:
@@ -331,8 +331,7 @@ def _mediamtx_unregister(path_name: str):
 
 
 def _add_camera(url: str, retries: int = 1, retry_delay_s: float = 2.0) -> dict:
-    """Đăng ký path trên mediamtx rồi gọi gRPC AddCamera xuống deepstream-service
-    với URL đã proxy. Dùng chung cho cả camera khởi động (CAMERA_URLS) và REST API."""
+    """Register a proxied camera path and add it to the DeepStream service."""
     path_name = _mediamtx_path_name(url)
     if not _mediamtx_register(path_name, url):
         raise RuntimeError(f"Failed to register mediamtx path for {url}")
@@ -427,9 +426,9 @@ def _log_shipper():
 
 # ── Entry point ──────────────────────────────────────────────────────────────────
 def main():
-    # MQTT — nếu broker chưa sẵn sàng lúc khởi động (race giữa các container),
-    # retry trong background cho tới khi kết nối được; sau đó paho tự reconnect
-    # theo reconnect_delay_set nếu rớt mạng giữa chừng.
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
     def _mqtt_connect_with_retry():
         while True:
             try:
@@ -445,9 +444,9 @@ def main():
     # Log shipper
     threading.Thread(target=_log_shipper, daemon=True, name="log-shipper").start()
 
-    # Camera khởi động: đăng ký qua mediamtx rồi add vào deepstream-service.
-    # Retry vì deepstream-service/mediamtx có thể chưa sẵn sàng (race điều kiện khởi
-    # động container, dù docker-compose đã có depends_on).
+    # Implementation note.
+    # Implementation note.
+    # Implementation note.
     for url in CAMERA_URLS:
         try:
             result = _add_camera(url, retries=5, retry_delay_s=3.0)

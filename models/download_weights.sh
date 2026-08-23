@@ -15,12 +15,22 @@ else
     echo "Found PeopleNet files."
 fi
 
-echo "=== [2/2] Verifying FaceMesh ONNX Model ==="
+echo "=== [2/3] Verifying FaceMesh ONNX Model ==="
 if [ ! -f "$MODEL_DIR/mediapipe_pose/20_new_onnx_postprocess_N-batch/face_mesh_192x192_post.onnx" ]; then
     echo "FaceMesh ONNX model not found."
     echo "Please place the face_mesh_192x192_post.onnx file under $MODEL_DIR/mediapipe_pose/..."
 else
     echo "Found FaceMesh ONNX model."
+fi
+
+echo "=== [3/3] Verifying PeopleNet custom output parser ==="
+if [ ! -f "$MODEL_DIR/peoplenet/custom_parser/nvdsinfer_custombboxparser.cpp" ]; then
+    echo "PeopleNet custom_parser sources not found (this is expected on a fresh clone)."
+    echo "These are NVIDIA DeepStream SDK proprietary sample files and are NOT"
+    echo "distributed with this repo — see ../THIRD_PARTY_NOTICES.md for where to"
+    echo "copy them from your local DeepStream SDK install and how to build them."
+else
+    echo "Found custom_parser sources."
 fi
 
 echo "=== Model check completed! ==="

@@ -20,13 +20,13 @@
 #include <NvInfer.h>
 #include <cuda_runtime_api.h>
 
-// Cấu hình
+// Implementation note.
 static const int PROCESS_EVERY_N_FRAMES = 4;
-// Ngưỡng confidence sau sigmoid (score model trả về là raw logit).
-// Score head của engine này calibration thấp: mặt rõ ~0.35-0.45, không có mặt <0.01,
-// nên 0.2 đủ tách biệt hai trường hợp.
+// Implementation note.
+// Implementation note.
+// Implementation note.
 static const float LANDMARK_CONF_THRESH = 0.2f;
-// Số frame tối đa được phép dùng lại landmark từ cache khi inference fail/skip
+// Implementation note.
 static const uint64_t MAX_CACHE_STALENESS = 2 * PROCESS_EVERY_N_FRAMES;
 static const uint64_t UINT64_MAX_VAL = 18446744073709551615ULL;
 static const int ID_GRID_PX = 80;
@@ -134,8 +134,8 @@ public:
         buffers[landmarks_idx] = d_landmarks;
         buffers[score_idx] = d_score;
 
-        // executeV2 (blocking) thay vì enqueueV2 + stream riêng: enqueueV2 trong process
-        // DeepStream bị xung đột stream (engine luôn nhận input rỗng), executeV2 chạy đúng
+        // Implementation note.
+        // Implementation note.
         cudaStreamSynchronize(stream);
         if (!context->executeV2(buffers)) {
             std::cerr << "[TRT] Execution failed" << std::endl;
@@ -154,10 +154,10 @@ public:
 
 static FaceMeshTRT g_face_mesh_trt;
 
-// State của MQTT
+// Implementation note.
 static struct mosquitto *g_mosq = nullptr;
 
-// Cache lưu landmark của các khuôn mặt để làm mượt giữa các frame không chạy inference
+// Implementation note.
 struct FaceCacheItem {
     std::vector<float> nose;
     std::vector<float> chin;
@@ -175,7 +175,7 @@ static std::mutex g_cache_mutex;
 static std::map<int, uint64_t> g_frame_counters;
 static std::mutex g_counters_mutex;
 
-// Khởi tạo Landmark network & MQTT Client
+// Implementation note.
 bool probe_processor_init(const std::string& mqtt_broker, int mqtt_port) {
     // 1. Load TensorRT Engine
     const char* trt_path_env = std::getenv("TRT_ENGINE_PATH");
@@ -188,7 +188,7 @@ bool probe_processor_init(const std::string& mqtt_broker, int mqtt_port) {
     }
 
 
-    // 2. Khởi tạo Mosquitto
+    // Implementation note.
     mosquitto_lib_init();
     g_mosq = mosquitto_new("jetson-deepstream-cpp", true, nullptr);
     if (!g_mosq) {
@@ -220,15 +220,15 @@ void probe_processor_cleanup() {
     std::cout << "[Probe] Cleaned up MQTT resources." << std::endl;
 }
 
-// Kiểm tra tính hợp lý hình học của landmark trước khi chấp nhận kết quả.
-// Loại các frame model "đoán bừa" (che khuất, khóa nhầm mặt bên cạnh, input hỏng gây NaN).
+// Implementation note.
+// Implementation note.
 static bool sanity_check_landmarks(const FaceCacheItem& item, float fl, float ft, float fw, float fh) {
     const std::vector<const std::vector<float>*> pts = {
         &item.nose, &item.chin, &item.left_eye, &item.right_eye,
         &item.bridge, &item.left_cheek, &item.right_cheek
     };
 
-    // 1. Tất cả tọa độ phải hữu hạn (NaN/Inf sẽ phá vỡ JSON và tính toán góc phía sau)
+    // Implementation note.
     float cx = 0.0f, cy = 0.0f;
     for (const auto* p : pts) {
         if (p->size() != 3 || !std::isfinite((*p)[0]) || !std::isfinite((*p)[1]) || !std::isfinite((*p)[2])) return false;
@@ -236,21 +236,21 @@ static bool sanity_check_landmarks(const FaceCacheItem& item, float fl, float ft
     }
     cx /= pts.size(); cy /= pts.size();
 
-    // 2. Trọng tâm landmark phải nằm trong bbox mở rộng (chống khóa nhầm sang mặt lân cận trong crop rộng)
+    // Implementation note.
     float margin_x = 0.35f * fw, margin_y = 0.45f * fh;
     if (cx < fl - margin_x || cx > fl + fw + margin_x ||
         cy < ft - margin_y || cy > ft + fh + margin_y) return false;
 
-    // 3. Khoảng cách 2 mắt phải hợp lý so với bề rộng mặt (cận dưới thấp để không loại nhầm profile view)
+    // Implementation note.
     float ex = item.left_eye[0] - item.right_eye[0];
     float ey = item.left_eye[1] - item.right_eye[1];
     float eye_dist = sqrtf(ex * ex + ey * ey);
     if (eye_dist < 0.10f * fw || eye_dist > 0.90f * fw) return false;
 
-    // 4. Khoảng cách cằm↔sống mũi phải hợp lý so với khoảng cách 2 mắt (loại kết quả
-    // suy biến: các điểm trùng nhau hoặc văng quá xa). Cố ý KHÔNG so sánh theo trục Y
-    // thuần túy (cằm phải "ở dưới" bridge) — khi đầu nghiêng (roll) cằm dịch ngang chứ
-    // không còn thấp hơn bridge theo Y nữa, so sánh Y sẽ loại nhầm mặt nghiêng hợp lệ.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
     float bx = item.chin[0] - item.bridge[0];
     float by = item.chin[1] - item.bridge[1];
     float chin_bridge_dist = sqrtf(bx * bx + by * by);
@@ -259,18 +259,18 @@ static bool sanity_check_landmarks(const FaceCacheItem& item, float fl, float ft
     return true;
 }
 
-// Hàm trích xuất landmark bằng ONNX Model
+// Implementation note.
 static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch_id, float fl, float ft, float fw, float fh, bool& success) {
     FaceCacheItem item;
     success = false;
 
     if (!src_surface || fw < 28 || fh < 28) return item;
 
-    // Lấy kích thước gốc từ surface
+    // Implementation note.
     int img_w = src_surface->surfaceList[batch_id].width;
     int img_h = src_surface->surfaceList[batch_id].height;
 
-    // Tính toán Crop với padding tương ứng bản Python
+    // Implementation note.
     float pad_x = 0.28f * fw;
     float pad_y_top = 0.45f * fh;
     float pad_y_bot = 0.18f * fh;
@@ -285,27 +285,27 @@ static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch
 
     if (cw <= 8 || ch <= 8) return item;
 
-    // Letterbox: giữ nguyên tỷ lệ crop khi đưa vào 192x192 (FaceMesh train trên crop vuông,
-    // resize méo tỷ lệ làm landmark lệch hệ thống, đặc biệt là pitch)
+    // Implementation note.
+    // Implementation note.
     float lb_scale = 192.0f / (float)std::max(cw, ch);
     int dst_w = std::max(2, (int)roundf(cw * lb_scale));
     int dst_h = std::max(2, (int)roundf(ch * lb_scale));
     int off_x = (192 - dst_w) / 2;
     int off_y = (192 - dst_h) / 2;
 
-    // Crop/resize bằng CPU (OpenCV) thay vì NvBufSurfTransform GPU compute mode.
-    // NvBufSurfTransform GPU chạy trên stream/context nội bộ không đồng bộ đầy đủ
-    // với FaceMeshTRT's stream riêng — dù đã thêm cudaDeviceSynchronize() vẫn còn
-    // ~1/3 trường hợp CPU đọc phải dữ liệu rỗng/rác dù transform báo thành công
-    // (xác nhận bằng crop dump). CPU path chậm hơn một chút cho vùng crop nhỏ
-    // (~100x100px) nhưng hoàn toàn đồng bộ, không còn phụ thuộc đoán định GPU race.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
+    // Implementation note.
     if (NvBufSurfaceMap(src_surface, batch_id, -1, NVBUF_MAP_READ) != 0) {
         std::cerr << "[Probe] Failed to map source surface for CPU crop." << std::endl;
         return item;
     }
     NvBufSurfaceSyncForCpu(src_surface, batch_id, -1);
     {
-        // Nguồn là RGBA (memory:NVMM), cấu hình bởi caps_rgba trong pipeline.cpp
+        // Implementation note.
         cv::Mat full_frame(img_h, img_w, CV_8UC4,
                             src_surface->surfaceList[batch_id].mappedAddr.addr[0],
                             src_surface->surfaceList[batch_id].pitch);
@@ -314,7 +314,7 @@ static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch
         cv::Mat crop_rgb_raw;
         cv::cvtColor(crop_rgba, crop_rgb_raw, cv::COLOR_RGBA2RGB);
 
-        // Canvas đen 192x192, resize crop giữ tỷ lệ vào giữa (letterbox)
+        // Implementation note.
         cv::Mat crop_rgb = cv::Mat::zeros(192, 192, CV_8UC3);
         cv::Mat resized;
         cv::resize(crop_rgb_raw, resized, cv::Size(dst_w, dst_h), 0, 0, cv::INTER_LINEAR);
@@ -322,22 +322,22 @@ static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch
 
         NvBufSurfaceUnMap(src_surface, batch_id, -1);
 
-        // Chuẩn bị dữ liệu vào cho model (swapRB = false vì ảnh crop đã là RGB)
+        // Implementation note.
         cv::Mat blob_img = cv::dnn::blobFromImage(crop_rgb, 1.0 / 255.0, cv::Size(192, 192), cv::Scalar(0,0,0), false, false);
 
         float score = 0.0f;
         std::vector<float> lm(1404);
         bool run_ok = g_face_mesh_trt.infer(blob_img.ptr<float>(), lm.data(), &score);
 
-        // Score model trả về là raw logit → đưa qua sigmoid để có confidence [0,1]
+        // Implementation note.
         float conf = 1.0f / (1.0f + expf(-score));
 
         if (run_ok && std::isfinite(score) && conf >= LANDMARK_CONF_THRESH) {
-            // Map ngược tọa độ từ không gian 192x192 (đã letterbox) về khung hình gốc.
-            // Z không có gốc tuyệt đối (chỉ là độ sâu tương đối quanh tâm mặt) nên chỉ chia
-            // theo lb_scale để cùng đơn vị pixel với X/Y, không cộng offset x1/y1/off.
-            // Đảo dấu Z để khớp quy ước "phía trước mặt = +Z" của model 3D phía Python
-            // (engine trả mũi lồi về phía camera là Z âm).
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
             auto get_pt = [&](int idx) -> std::vector<float> {
                 float x_crop = lm[idx * 3 + 0];
                 float y_crop = lm[idx * 3 + 1];
@@ -372,11 +372,11 @@ static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch
                 std::cerr << "[Probe] Landmark sanity check failed (conf=" << conf << "), dropping frame result." << std::endl;
             }
         } else if (run_ok) {
-            // Bình thường: mặt bị che khuất, xa, thiếu sáng... Nếu tần suất bất thường
-            // cao trở lại và raw_score luôn đúng -8.15625 (chữ ký input rỗng) dù ánh
-            // sáng/góc mặt tốt, xem lại memory facemesh-trt-quirks — trước khi chuyển
-            // crop sang CPU (bản này) đó là dấu hiệu race condition GPU, không phải
-            // model thật sự không nhận ra mặt.
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
+            // Implementation note.
             std::cerr << "[Probe] Landmark rejected: raw_score=" << score << " conf=" << conf
                        << " (thresh=" << LANDMARK_CONF_THRESH << ")" << std::endl;
         }
@@ -385,7 +385,7 @@ static FaceCacheItem run_landmark_inference(NvBufSurface *src_surface, int batch
     return item;
 }
 
-// Helper để sinh chuỗi JSON cho Landmark điểm
+// Implementation note.
 static std::string format_points_json(const FaceCacheItem& item) {
     auto pt_json = [](const std::vector<float>& p) {
         std::stringstream s;
@@ -403,7 +403,7 @@ static std::string format_points_json(const FaceCacheItem& item) {
     return ss.str();
 }
 
-// GStreamer Pad Probe Callback chính
+// Implementation note.
 GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointer u_data) {
     GstBuffer *buf = (GstBuffer *)info->data;
     if (!buf) {
@@ -415,12 +415,12 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
         return GST_PAD_PROBE_OK;
     }
 
-    // Fallback nếu ntp_timestamp per-frame không có (không nên xảy ra vì nvstreammux
-    // mặc định attach-sys-ts=true, nhưng phòng trường hợp cấu hình đổi)
+    // Implementation note.
+    // Implementation note.
     auto now = std::chrono::system_clock::now();
     long long fallback_timestamp_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
 
-    // Map NvBufSurface từ GStreamer Buffer
+    // Implementation note.
     NvBufSurface *surface = nullptr;
     GstMapInfo map_info;
     bool surface_mapped = false;
@@ -430,24 +430,24 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
         surface_mapped = true;
     }
 
-    // Duyệt qua từng Frame trong Batch
+    // Implementation note.
     for (NvDsFrameMetaList *l_frame = batch_meta->frame_meta_list; l_frame != nullptr; l_frame = l_frame->next) {
         NvDsFrameMeta *frame_meta = (NvDsFrameMeta *)l_frame->data;
         int src_id = frame_meta->source_id;
         int batch_id = frame_meta->batch_id;
 
-        // ntp_timestamp được nvstreammux gắn NGAY LÚC NHẬN frame từ camera (ns, epoch),
-        // sớm hơn nhiều so với lúc pad probe này chạy (đã qua PGIE + toàn bộ FaceMesh
-        // của các object trước đó trong batch) — dùng nó thay vì giờ hiện tại để "ts"
-        // phản ánh đúng thời điểm capture, không cộng dồn độ trễ xử lý AI. Mặc định
-        // attach-sys-ts=true trên nvstreammux (pipeline.cpp) nghĩa là đây là giờ hệ
-        // thống Jetson lúc nhận frame, KHÔNG phải giờ camera chụp (cần RTCP NTP từ
-        // camera + attach-sys-ts=false mới có giờ camera thật, tùy camera có hỗ trợ).
+        // Implementation note.
+        // Implementation note.
+        // Implementation note.
+        // Implementation note.
+        // Implementation note.
+        // Implementation note.
+        // Implementation note.
         long long timestamp_ms = frame_meta->ntp_timestamp > 0
             ? (long long)(frame_meta->ntp_timestamp / 1000000ULL)
             : fallback_timestamp_ms;
 
-        // Cập nhật frame counter
+        // Implementation note.
         uint64_t fc = 0;
         {
             std::lock_guard<std::mutex> lock(g_counters_mutex);
@@ -457,22 +457,22 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
 
         bool do_detect = (fc % PROCESS_EVERY_N_FRAMES == 0);
 
-        // Định dạng chuỗi JSON cho danh sách detections
+        // Implementation note.
         std::stringstream det_ss;
         bool first_det = true;
 
-        // Duyệt qua danh sách đối tượng phát hiện được trong Frame
+        // Implementation note.
         for (NvDsObjectMetaList *l_obj = frame_meta->obj_meta_list; l_obj != nullptr; l_obj = l_obj->next) {
             NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)l_obj->data;
 
-            // Kiểm tra xem đối tượng có phải khuôn mặt (face class ID=2 hoặc label)
+            // Implementation note.
             if (obj_meta->class_id == 2 || strcmp(obj_meta->obj_label, "face") == 0) {
                 float fl = obj_meta->rect_params.left;
                 float ft = obj_meta->rect_params.top;
                 float fw = obj_meta->rect_params.width;
                 float fh = obj_meta->rect_params.height;
 
-                // Lấy ID đối tượng (nếu tracking bị mất ID sẽ tự tính bằng tọa độ lưới)
+                // Implementation note.
                 uint64_t obj_id = obj_meta->object_id;
                 if (obj_id == UINT64_MAX_VAL) {
                     obj_id = ((int)(fl + fw * 0.5f) / ID_GRID_PX) * 1000 + (int)(ft + fh * 0.5f) / ID_GRID_PX;
@@ -494,19 +494,19 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
                     }
                 }
 
-                // Nếu không chạy detect ở frame này, lấy từ cache
+                // Implementation note.
                 if (!pts_valid) {
                     std::lock_guard<std::mutex> lock(g_cache_mutex);
                     auto it = g_pose_cache.find(cache_key);
-                    // Chỉ dùng lại cache còn đủ mới; landmark quá cũ làm góc "đóng băng"
-                    // sai vị trí khi người đã di chuyển mà inference đang fail liên tục
+                    // Implementation note.
+                    // Implementation note.
                     if (it != g_pose_cache.end() && fc - it->second.last_seen <= MAX_CACHE_STALENESS) {
                         pts = it->second;
                         pts_valid = true;
                     }
                 }
 
-                // Append detection vào JSON
+                // Implementation note.
                 if (!first_det) det_ss << ",";
                 first_det = false;
 
@@ -522,7 +522,7 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
         }
 
 
-        // Serialize và gửi MQTT
+        // Implementation note.
         std::stringstream payload_ss;
         payload_ss << "{\"f\":" << fc
                    << ",\"ts\":" << timestamp_ms
@@ -541,7 +541,7 @@ GstPadProbeReturn sgie_src_pad_probe(GstPad *pad, GstPadProbeInfo *info, gpointe
         gst_buffer_unmap(buf, &map_info);
     }
 
-    // Dọn dẹp cache cũ định kỳ (mỗi 300 frames)
+    // Implementation note.
     static uint64_t global_fc = 0;
     global_fc++;
     if (global_fc % 300 == 0) {

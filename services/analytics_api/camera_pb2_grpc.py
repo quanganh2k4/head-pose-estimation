@@ -5,7 +5,7 @@ import warnings
 
 import camera_pb2 as camera__pb2
 
-GRPC_GENERATED_VERSION = '1.81.1'
+GRPC_GENERATED_VERSION = '1.83.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -26,7 +26,7 @@ if _version_not_supported:
 
 
 class CameraServiceStub:
-    """Dịch vụ quản lý camera động cho DeepStream C++ Service
+    """Dynamic camera management service for the DeepStream C++ service.
     """
 
     def __init__(self, channel):
@@ -53,25 +53,25 @@ class CameraServiceStub:
 
 
 class CameraServiceServicer:
-    """Dịch vụ quản lý camera động cho DeepStream C++ Service
+    """Dynamic camera management service for the DeepStream C++ service.
     """
 
     def AddCamera(self, request, context):
-        """Thêm camera RTSP mới vào pipeline đang chạy
+        """Add a new RTSP camera to the running pipeline.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def RemoveCamera(self, request, context):
-        """Xóa camera khỏi pipeline bằng ID
+        """Remove a camera from the pipeline by ID.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
     def ListCameras(self, request, context):
-        """Liệt kê danh sách các camera đang active
+        """List currently active cameras.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -104,7 +104,7 @@ def add_CameraServiceServicer_to_server(servicer, server):
 
  # This class is part of an EXPERIMENTAL API.
 class CameraService:
-    """Dịch vụ quản lý camera động cho DeepStream C++ Service
+    """Dynamic camera management service for the DeepStream C++ service.
     """
 
     @staticmethod

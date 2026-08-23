@@ -23,11 +23,11 @@ struct SourceInfo {
 static std::map<int, SourceInfo> g_sources;
 static int g_next_id = 0;
 
-// Callback khi nvurisrcbin thêm pad mới
+// Implementation note.
 static void cb_newpad(GstElement *element, GstPad *pad, gpointer data) {
     GstPad *sink_pad = (GstPad *)data;
     
-    // Chỉ xử lý các source pad (đầu ra của src_bin)
+    // Implementation note.
     if (gst_pad_get_direction(pad) != GST_PAD_SRC) {
         return;
     }
@@ -37,7 +37,7 @@ static void cb_newpad(GstElement *element, GstPad *pad, gpointer data) {
         return;
     }
 
-    // Lấy caps để kiểm tra xem có phải định dạng video không
+    // Implementation note.
     GstCaps *caps = gst_pad_get_current_caps(pad);
     if (!caps) {
         caps = gst_pad_query_caps(pad, nullptr);
@@ -76,23 +76,23 @@ bool pipeline_init() {
         return false;
     }
 
-    // Tạo nvstreammux
+    // Implementation note.
     g_streammux = gst_element_factory_make("nvstreammux", "stream-muxer");
     if (!g_streammux) {
         std::cerr << "[Pipeline] Failed to create nvstreammux" << std::endl;
         return false;
     }
 
-    // Cấu hình các tham số mặc định cho nvstreammux
+    // Implementation note.
     g_object_set(G_OBJECT(g_streammux), "batch-size", 8, nullptr);
-    g_object_set(G_OBJECT(g_streammux), "width", 1920, nullptr); // Kích thước của pipeline chính
+    g_object_set(G_OBJECT(g_streammux), "width", 1920, nullptr); // Implementation note.
     g_object_set(G_OBJECT(g_streammux), "height", 1080, nullptr);
     g_object_set(G_OBJECT(g_streammux), "batched-push-timeout", 33000, nullptr);
     g_object_set(G_OBJECT(g_streammux), "live-source", 1, nullptr);
 
     gst_bin_add(GST_BIN(g_pipeline), g_streammux);
 
-    // Tạo pgie (nvinfer) chạy PeopleNet
+    // Implementation note.
     GstElement *pgie = gst_element_factory_make("nvinfer", "pgie");
     if (!pgie) {
         std::cerr << "[Pipeline] Failed to create nvinfer (pgie)" << std::endl;
@@ -103,7 +103,7 @@ bool pipeline_init() {
     g_object_set(G_OBJECT(pgie), "config-file-path", pgie_config_path.c_str(), nullptr);
     g_object_set(G_OBJECT(pgie), "batch-size", 8, nullptr);
 
-    // Tạo converter và capsfilter
+    // Implementation note.
     GstElement *nvvideoconvert = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
     GstElement *caps_rgba = gst_element_factory_make("capsfilter", "caps-rgba");
     GstElement *fakesink = gst_element_factory_make("fakesink", "fake-sink");
@@ -113,12 +113,12 @@ bool pipeline_init() {
         return false;
     }
 
-    // Cấu hình caps RGBA (zero-copy GPU NVMM)
+    // Implementation note.
     GstCaps *caps = gst_caps_from_string("video/x-raw(memory:NVMM),format=RGBA");
     g_object_set(G_OBJECT(caps_rgba), "caps", caps, nullptr);
     gst_caps_unref(caps);
 
-    // Cấu hình fakesink không đồng bộ
+    // Implementation note.
     g_object_set(G_OBJECT(fakesink), "sync", FALSE, nullptr);
     g_object_set(G_OBJECT(fakesink), "async", FALSE, nullptr);
 
@@ -130,7 +130,7 @@ bool pipeline_init() {
         return false;
     }
 
-    // Đăng ký Pad Probe trên src pad của nvvideoconvert
+    // Implementation note.
     GstPad *mpconv_src = gst_element_get_static_pad(nvvideoconvert, "src");
     if (!mpconv_src) {
         std::cerr << "[Pipeline] Failed to get converter src pad" << std::endl;
@@ -174,7 +174,7 @@ void pipeline_stop() {
 int pipeline_add_camera(const std::string& url) {
     std::lock_guard<std::mutex> lock(g_pipeline_mutex);
     
-    // Kiểm tra xem camera đã tồn tại và active chưa
+    // Implementation note.
     for (const auto& pair : g_sources) {
         if (pair.second.url == url && pair.second.active) {
             std::cout << "[Pipeline] URL already active with ID " << pair.first << std::endl;
@@ -199,7 +199,7 @@ int pipeline_add_camera(const std::string& url) {
     g_object_set(G_OBJECT(src_bin), "rtsp-reconnect-interval", 10, nullptr);
     g_object_set(G_OBJECT(src_bin), "rtsp-reconnect-attempts", 0, nullptr);
 
-    // Request pad từ nvstreammux
+    // Implementation note.
     std::string pad_name = "sink_" + std::to_string(src_id);
     GstPad *mux_sink_pad = gst_element_get_request_pad(g_streammux, pad_name.c_str());
     if (!mux_sink_pad) {
@@ -210,10 +210,10 @@ int pipeline_add_camera(const std::string& url) {
 
     gst_bin_add(GST_BIN(g_pipeline), src_bin);
 
-    // Kết nối sự kiện pad-added
+    // Implementation note.
     g_signal_connect(src_bin, "pad-added", G_CALLBACK(cb_newpad), mux_sink_pad);
 
-    // Sync state với parent pipeline đang PLAYING
+    // Implementation note.
     gst_element_sync_state_with_parent(src_bin);
 
     SourceInfo info;
@@ -227,23 +227,23 @@ int pipeline_add_camera(const std::string& url) {
     return src_id;
 }
 
-// Cấu trúc dùng để truyền context vào idle handler
+// Implementation note.
 struct RemoveContext {
     int src_id;
     GstElement *src_bin;
     GstPad *mux_sink_pad;
 };
 
-// Idle handler thực hiện gỡ camera an toàn trong loop thread
+// Implementation note.
 static gboolean cb_remove_source(gpointer data) {
     auto *ctx = (RemoveContext *)data;
     
     std::cout << "[Pipeline] Safely removing camera ID: " << ctx->src_id << " in main thread..." << std::endl;
 
-    // 1. Set trạng thái src_bin về NULL
+    // Implementation note.
     gst_element_set_state(ctx->src_bin, GST_STATE_NULL);
 
-    // 2. Unlink khỏi nvstreammux pad
+    // Implementation note.
     if (gst_pad_is_linked(ctx->mux_sink_pad)) {
         GstPad *peer = gst_pad_get_peer(ctx->mux_sink_pad);
         if (peer) {
@@ -252,16 +252,16 @@ static gboolean cb_remove_source(gpointer data) {
         }
     }
 
-    // 3. Giải phóng pad đã request từ nvstreammux
+    // Implementation note.
     gst_element_release_request_pad(g_streammux, ctx->mux_sink_pad);
 
-    // 4. Xóa src_bin khỏi pipeline
+    // Implementation note.
     gst_bin_remove(GST_BIN(g_pipeline), ctx->src_bin);
 
-    // Dọn dẹp bộ nhớ context
+    // Implementation note.
     delete ctx;
     std::cout << "[Pipeline] Camera removed successfully." << std::endl;
-    return FALSE; // Chỉ chạy 1 lần
+    return FALSE; // Implementation note.
 }
 
 bool pipeline_remove_camera(int src_id) {
@@ -274,7 +274,7 @@ bool pipeline_remove_camera(int src_id) {
 
     it->second.active = false;
 
-    // Khởi tạo context để chuyển vào main loop thread
+    // Implementation note.
     auto *ctx = new RemoveContext();
     ctx->src_id = src_id;
     ctx->src_bin = it->second.src_bin;
