@@ -1,60 +1,143 @@
-# System Architecture & Data Flow
+# Kiến trúc hệ thống
 
-This document details the decoupled microservices architecture of the Real-Time Multi-Camera Head Pose and Gaze Estimation System on NVIDIA Jetson.
+Tài liệu này mô tả cách các thành phần phối hợp với nhau và những quy ước cần giữ khi mở rộng hệ thống. Mục tiêu là để một người mới có thể trả lời nhanh ba câu hỏi:
 
-``![Diagram](https://mermaid.ink/img/eyJjb2RlIjogImdyYXBoIExSXG4gICAgc3ViZ3JhcGggTEFOW1wiTG9jYWwgTmV0d29yayAoTEFOKVwiXVxuICAgICAgICBDQU1bXCJcdWQ4M2RcdWRjZjcgSVAgQ2FtZXJhcyAxLi5OPGJyLz4oUlRTUCwgSDI2NC9IMjY1KVwiXVxuICAgICAgICBWSUVXRVJbXCJcdWQ4M2RcdWRjYmIgQ2xpZW50IC8gVmlld2VyIEdVSTxici8+UkVTVCBcdTAwYjcgV2ViU29ja2V0IFx1MDBiNyBXZWJSVENcIl1cbiAgICBlbmRcblxuICAgIHN1YmdyYXBoIEpFVFNPTltcIk5WSURJQSBKZXRzb24gSG9zdCAoRG9ja2VyIENvbXBvc2UpXCJdXG4gICAgICAgIE1UWFtcIk1lZGlhTVRYIEdhdGV3YXk8YnIvPlJUU1AgUHJveHkgOjg1NTQgXHUwMGI3IEFQSSA6OTk5Nzxici8+V2ViUlRDL1dIRVAgOjg4ODlcIl1cblxuICAgICAgICBzdWJncmFwaCBWSVNJT05bXCJ2aXNpb24tcGlwZWxpbmUgKEMrKzE3KVwiXVxuICAgICAgICAgICAgR1JQQ1tcImdSUEMgU2VydmVyIDo1MDA1MTxici8+QWRkL1JlbW92ZS9MaXN0IENhbWVyYVwiXVxuICAgICAgICAgICAgUElQRVtcIkdTdHJlYW1lciBQaXBlbGluZTxici8+cnRzcHNyYyBcdTIxOTIgbnZzdHJlYW1tdXggXHUyMTkyPGJyLz5QZW9wbGVOZXQgKG52aW5mZXIpIFx1MjE5MiBOdkRDRiB0cmFja2VyXCJdXG4gICAgICAgICAgICBQUk9CRVtcIkN1c3RvbSBQYWQgUHJvYmU8YnIvPkdQVSBDcm9wIChOdkJ1ZlN1cmZUcmFuc2Zvcm0pPGJyLz5GYWNlTWVzaCBUZW5zb3JSVCBDKysgQVBJXCJdXG4gICAgICAgIGVuZFxuXG4gICAgICAgIE1RVFRbXCJNUVRUIEJyb2tlcjxici8+TW9zcXVpdHRvIDoxODgzXCJdXG5cbiAgICAgICAgc3ViZ3JhcGggQVBQW1wiYW5hbHl0aWNzLWFwaSAoUHl0aG9uIC8gRmFzdEFQSSlcIl1cbiAgICAgICAgICAgIEFMR09bXCJTcGhlcmljYWwgTW9ycGhpbmc8YnIvPisgT25lLUV1cm8gRmlsdGVyXCJdXG4gICAgICAgICAgICBBTEVSVFtcIkRpc3RyYWN0aW9uIEFsZXJ0IEVuZ2luZVwiXVxuICAgICAgICAgICAgQVBJW1wiUkVTVCBBUEkgOjgwODA8YnIvPldlYlNvY2tldCAvd3MvZ2F6ZVwiXVxuICAgICAgICBlbmRcbiAgICBlbmRcblxuICAgIENBTSAtLT58XCJTaW5nbGUgUlRTUCBJbmdlc3QgUG9pbnRcInwgTVRYXG4gICAgTVRYIC0tPnxcIlByb3hpZWQgSW50ZXJuYWwgUlRTUFwifCBQSVBFXG4gICAgUElQRSAtLT4gUFJPQkVcbiAgICBQUk9CRSAtLT58XCJMYW5kbWFyayBKU09OIChnYXplLysvbWV0YWRhdGEpXCJ8IE1RVFRcbiAgICBNUVRUIC0tPiBBTEdPXG4gICAgQUxHTyAtLT4gQUxFUlRcbiAgICBBTEdPIC0tPnxcIlNtb290aGVkIFBvc2UgKGdhemUvKy9jYWxjdWxhdGVkKVwifCBNUVRUXG4gICAgQVBJIC0tPnxcIlJlZ2lzdGVyIFN0cmVhbSBQYXRoXCJ8IE1UWFxuICAgIEFQSSAtLT58XCJBZGRDYW1lcmEgLyBSZW1vdmVDYW1lcmFcInwgR1JQQ1xuICAgIEdSUEMgLS4tPnxcIkR5bmFtaWMgUGFkIExpbmsvVW5saW5rXCJ8IFBJUEVcbiAgICBWSUVXRVIgPC0tPiBBUElcbiAgICBNVFggLS0+fFwiV2ViUlRDIFZpZGVvIFN0cmVhbVwifCBWSUVXRVIiLCAibWVybWFpZCI6IHsidGhlbWUiOiAiZGVmYXVsdCJ9fQ==)
+1. Video đi qua những thành phần nào?
+2. Dữ liệu được trao đổi bằng giao thức nào?
+3. Khi thay đổi một tính năng thì cần sửa ở đâu?
 
-<details><summary>🔍 Xem mã nguồn Mermaid</summary>
+## 1. Tổng quan
 
-`mermaid
-graph LR
-    subgraph LAN["Local Network (LAN)"]
-        CAM["📷 IP Cameras 1..N<br/>(RTSP, H264/H265)"]
-        VIEWER["💻 Client / Viewer GUI<br/>REST · WebSocket · WebRTC"]
-    end
+Hệ thống gồm bốn service/container. Mỗi service có một trách nhiệm rõ ràng:
 
-    subgraph JETSON["NVIDIA Jetson Host (Docker Compose)"]
-        MTX["MediaMTX Gateway<br/>RTSP Proxy :8554 · API :9997<br/>WebRTC/WHEP :8889"]
+| Thành phần | Trách nhiệm | Giao tiếp chính |
+| --- | --- | --- |
+| `mediamtx` | Kéo RTSP từ camera đúng một lần, cung cấp RTSP nội bộ và WebRTC/WHEP cho client | RTSP `:8554`, API `:9997`, WebRTC `:8889` |
+| `vision-pipeline` | Decode, batch, phát hiện người, tracking và suy luận FaceMesh trên GPU | gRPC `:50051`, MQTT `:1883` |
+| `analytics-api` | API điều khiển, tính head pose/gaze, lọc nhiễu, cảnh báo và relay WebSocket | HTTP/WebSocket `:8080`, gRPC, MQTT, MediaMTX API |
+| `mqtt-broker` | Message bus cho dữ liệu theo thời gian thực | MQTT `:1883` |
 
-        subgraph VISION["vision-pipeline (C++17)"]
-            GRPC["gRPC Server :50051<br/>Add/Remove/List Camera"]
-            PIPE["GStreamer Pipeline<br/>rtspsrc → nvstreammux →<br/>PeopleNet (nvinfer) → NvDCF tracker"]
-            PROBE["Custom Pad Probe<br/>GPU Crop (NvBufSurfTransform)<br/>FaceMesh TensorRT C++ API"]
-        end
+```mermaid
+flowchart LR
+    Camera[Camera IP<br/>RTSP] -->|RTSP| MTX[MediaMTX<br/>single pull point]
+    MTX -->|RTSP nội bộ| Vision[vision-pipeline<br/>C++ / DeepStream / TensorRT]
+    Vision -->|gaze/cam_id/metadata| MQTT[(Mosquitto MQTT)]
+    MQTT --> Analytics[analytics-api<br/>Python / FastAPI]
+    Analytics -->|REST + WebSocket| Client[Dashboard / Client]
+    MTX -->|WebRTC / WHEP| Client
+    Analytics -->|MediaMTX API| MTX
+    Analytics -->|gRPC Add/Remove/ListCamera| Vision
+```
 
-        MQTT["MQTT Broker<br/>Mosquitto :1883"]
+## 2. Hai loại giao tiếp
 
-        subgraph APP["analytics-api (Python / FastAPI)"]
-            ALGO["Spherical Morphing<br/>+ One-Euro Filter"]
-            ALERT["Distraction Alert Engine"]
-            API["REST API :8080<br/>WebSocket /ws/gaze"]
-        end
-    end
+### 2.1. Control plane: gRPC và MediaMTX API
 
-    CAM -->|"Single RTSP Ingest Point"| MTX
-    MTX -->|"Proxied Internal RTSP"| PIPE
-    PIPE --> PROBE
-    PROBE -->|"Landmark JSON (gaze/+/metadata)"| MQTT
-    MQTT --> ALGO
-    ALGO --> ALERT
-    ALGO -->|"Smoothed Pose (gaze/+/calculated)"| MQTT
-    API -->|"Register Stream Path"| MTX
-    API -->|"AddCamera / RemoveCamera"| GRPC
-    GRPC -.->|"Dynamic Pad Link/Unlink"| PIPE
-    VIEWER <--> API
-    MTX -->|"WebRTC Video Stream"| VIEWER
-`
+Control plane dùng cho các thao tác ít xảy ra nhưng cần phản hồi ngay:
 
-</details>``
+```mermaid
+sequenceDiagram
+    actor Client
+    participant API as analytics-api :8080
+    participant MTX as MediaMTX :9997
+    participant Vision as vision-pipeline :50051
 
-## Core Design Principles
+    Client->>API: POST /cameras/add { url }
+    API->>MTX: Đăng ký path proxy
+    API->>Vision: AddCamera(proxy RTSP URL)
+    Vision->>Vision: Tạo source và link request pad
+    Vision-->>API: src_id + status
+    API-->>Client: CameraAddResponse
+```
 
-1. **Decoupling AI Inference from Business Logic:**
-   - **`vision-pipeline` (C++):** Dedicated to high-throughput hardware-accelerated video decoding, multi-stream multiplexing, object detection, and landmark inference. Zero Python GIL interference.
-   - **`analytics-api` (Python):** Handles alert logic, pose smoothing filtering, REST endpoints, and WebSocket broadcasting.
+Luồng xóa camera đi theo chiều ngược lại: `analytics-api` gọi `RemoveCamera`, pipeline tháo pad và giải phóng source, sau đó API xóa path proxy trên MediaMTX.
 
-2. **Zero-Copy Hardware Acceleration:**
-   - Uses `NvBufSurfTransform` to perform cropping and color space conversion directly in NVMM memory on the GPU before passing tensors to TensorRT.
+Contract của control plane nằm tại [api/proto/camera_service.proto](../api/proto/camera_service.proto). Khi đổi request/response, cần cập nhật proto, code generated và cả client Python/server C++.
 
-3. **Dynamic Stream Management:**
-   - Addition or removal of RTSP streams happens at runtime via gRPC and dynamic GStreamer pad linking without interrupting existing streams.
+### 2.2. Data plane: RTSP, MQTT và WebSocket
+
+Data plane dùng cho dòng dữ liệu liên tục:
+
+1. MediaMTX kéo camera thật và tạo một path nội bộ.
+2. `vision-pipeline` đọc path nội bộ bằng GStreamer.
+3. Pad probe lấy metadata từ DeepStream, crop khuôn mặt trên GPU và chạy FaceMesh TensorRT.
+4. Kết quả landmark được publish lên `gaze/<camera_id>/metadata`.
+5. `analytics-api` subscribe, tính pose/gaze, áp dụng filter và publish kết quả lên `gaze/<camera_id>/calculated`.
+6. Dashboard nhận dữ liệu qua WebSocket và nhận video trực tiếp từ MediaMTX bằng WebRTC/WHEP.
+
+MQTT dùng cho stream/event; không dùng MQTT để điều khiển lifecycle camera. gRPC dùng cho command; không dùng gRPC để vận chuyển từng frame hoặc từng landmark.
+
+## 3. Ranh giới trách nhiệm trong code
+
+### `services/vision_pipeline/`
+
+- `src/main.cpp`: khởi tạo process, MQTT client và gRPC server.
+- `src/pipeline.cpp`: tạo pipeline GStreamer/DeepStream, `nvstreammux`, detector và tracker.
+- `src/probe_processor.cpp`: xử lý metadata trong pad probe, GPU crop, TensorRT FaceMesh và publish MQTT.
+- `proto/` và `api/proto/`: contract gRPC; tránh viết lại message bằng chuỗi tự do.
+
+Code C++ nên tập trung vào throughput, buffer ownership, GPU/NVMM và lifecycle của source. Logic cảnh báo, smoothing và API không nên đưa vào pipeline.
+
+### `services/analytics_api/`
+
+- `main.py`: FastAPI routes, MQTT subscriber, gRPC client và MediaMTX client.
+- `modules/`: thuật toán head pose/gaze và các bộ lọc.
+- `tests/`: unit test cho thuật toán, không phụ thuộc camera thật.
+
+Python nên xử lý business logic và protocol orchestration. Khi thêm endpoint, cập nhật thêm [docs/api_reference.md](api_reference.md); khi thêm thuật toán, thêm test độc lập trong `services/analytics_api/tests/`.
+
+### `configs/` và `deployments/`
+
+- `configs/mediamtx.yml`: địa chỉ và hành vi của MediaMTX.
+- `configs/mosquitto.conf`: MQTT broker.
+- `deployments/docker/docker-compose.dev.yml`: môi trường local; có thể chạy không cần GPU pipeline.
+- `deployments/docker/docker-compose.prod.yml`: môi trường Jetson production; dùng host networking và NVIDIA runtime.
+- `deployments/.env.example`: các giá trị phụ thuộc máy triển khai, đặc biệt là host public của RTSP/WebRTC.
+
+Không hard-code IP của Jetson hoặc camera trong source. Dùng environment variable và tài liệu hóa biến đó trong `.env.example`.
+
+## 4. Quy tắc khi mở rộng
+
+### Thêm một camera
+
+Chỉ đi qua API `POST /cameras/add`. API sẽ đăng ký MediaMTX trước, sau đó gọi gRPC `AddCamera` với URL proxy. Không cho pipeline kéo trực tiếp URL camera thật; nếu làm vậy sẽ phá vỡ nguyên tắc single pull point.
+
+### Thêm dữ liệu mới
+
+Nếu dữ liệu là stream liên tục, thêm MQTT topic có cấu trúc `gaze/<camera_id>/<kind>` và cập nhật tài liệu topic trong [docs/api_reference.md](api_reference.md). Giữ payload JSON có `src_id`/`camera_id`, timestamp và version nếu có thể.
+
+### Thay model hoặc thay bước inference
+
+Model/config phải nằm trong `models/` hoặc được truyền qua environment. Kiểm tra đồng thời:
+
+- shape và format tensor;
+- memory type CPU/GPU và đường đi zero-copy;
+- batch size và giới hạn `MAX_CAMERAS`;
+- latency, GPU memory và kết quả landmark;
+- Dockerfile production và pipeline config.
+
+### Thay đổi contract
+
+Không sửa riêng file generated như `camera_pb2.py` hoặc `camera.grpc.pb.*`. Sửa proto nguồn trước, generate lại, sau đó chạy test/CI.
+
+## 5. Cách debug theo luồng
+
+Khi không có video hoặc không có gaze, kiểm tra theo thứ tự:
+
+1. MediaMTX có đọc được camera và path có tồn tại không?
+2. `vision-pipeline` có link được RTSP source và có frame trong GStreamer không?
+3. Pad probe có tạo landmark và publish MQTT không?
+4. `analytics-api` có subscribe đúng topic `gaze/+/metadata` không?
+5. WebSocket có client đăng ký đúng `camera_id` không?
+6. Browser có truy cập được public WebRTC host/port không?
+
+Các port và topic chuẩn được liệt kê trong [docs/api_reference.md](api_reference.md). Không nên bắt đầu bằng việc sửa thuật toán nếu lỗi đang nằm ở control plane hoặc transport.
+
+## 6. Checklist trước khi merge
+
+- Sơ đồ Mermaid và tài liệu API đã được cập nhật.
+- Proto/config/env thay đổi đã được cập nhật ở mọi môi trường liên quan.
+- Có unit test cho logic mới và không phụ thuộc camera thật.
+- Không thêm kết nối trực tiếp từ pipeline tới camera nếu MediaMTX đã có path proxy.
+- Không đưa business logic vào pad probe hoặc đưa GPU buffer ra CPU nếu không cần.
+- Kiểm tra `make test`, `make lint` và build Docker tương ứng.

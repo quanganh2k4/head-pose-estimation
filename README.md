@@ -1,4 +1,6 @@
-# Headpose Camera IP — Production Edge AI & DeepStream Microservices
+# Headpose Camera IP
+
+Hệ thống phân tích **head pose** và **gaze direction** theo thời gian thực từ nhiều camera IP. Dự án được tối ưu cho NVIDIA Jetson, sử dụng DeepStream/TensorRT ở tầng inference và FastAPI ở tầng business logic.
 
 [![CI Backend](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci-backend.yml/badge.svg)](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci-backend.yml)
 [![CI Pipeline](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci-pipeline.yml/badge.svg)](https://github.com/quanganh2k4/head-pose-estimation/actions/workflows/ci-pipeline.yml)
@@ -10,227 +12,185 @@
 ![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-REST%20%2B%20WebSocket-009688?logo=fastapi&logoColor=white)
 
-Hệ thống phân tích hướng nhìn (gaze) và tư thế đầu (head pose) thời gian thực đa luồng RTSP camera IP, được xây dựng trên nền tảng **NVIDIA DeepStream SDK 7.0**, **TensorRT C++ API**, **GStreamer**, **gRPC**, **FastAPI**, và **MQTT**, tối ưu hóa chuyên sâu cho các thiết bị Edge AI như NVIDIA Jetson Orin / Xavier / Nano.
+## Mục tiêu
 
-Hệ thống áp dụng kiến trúc **Decoupled Microservices** giúp tách biệt hoàn toàn tầng AI inference nặng phần cứng GPU khỏi tầng Business logic/Alert engine nhẹ trên CPU, cho phép quản lý thêm/xóa camera động tại runtime mà không gián đoạn pipeline.
+- Xử lý đồng thời nhiều luồng RTSP.
+- Tận dụng GPU/NVMM zero-copy trên NVIDIA Jetson.
+- Cho phép thêm và xóa camera khi hệ thống đang chạy.
+- Tách inference nặng bằng C++ khỏi business logic bằng Python.
+- Cung cấp dữ liệu pose/gaze qua REST, WebSocket và MQTT.
 
----
+## Kiến trúc
 
-## ⚡ Bảng So Sánh Hiệu Năng (Benchmarks)
+Hệ thống có bốn thành phần chính:
 
-| Pipeline Architecture | Latency (End-to-End) | Max Concurrent Streams (1080p@30fps) | GPU Utilization | CPU Load | Memory (VRAM/RAM) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python Monolithic (PoC)** | ~85 ms | 2 Streams (GIL Bottleneck) | ~45% | ~85% (High) | ~2.1 GB |
-| **C++ Native Microservices** | **~18 ms** | **6 - 8 Streams (Zero-copy GPU)** | **~85% (Optimal)** | **~22% (Low)** | **~1.2 GB** |
+| Thành phần | Vai trò | Cổng |
+| --- | --- | --- |
+| `mediamtx` | Kéo RTSP từ camera một lần, proxy RTSP và phát WebRTC/WHEP | `8554`, `8889`, `9997` |
+| `vision-pipeline` | DeepStream, PeopleNet, NvDCF, FaceMesh TensorRT và GPU processing | gRPC `50051` |
+| `analytics-api` | FastAPI, head pose/gaze, filter, alert và WebSocket | HTTP `8080` |
+| `mqtt-broker` | Message bus giữa pipeline và analytics API | MQTT `1883` |
 
-> Xem chi tiết báo cáo đo kiểm và sizing phần cứng tại [docs/benchmarks.md](docs/benchmarks.md).
+```mermaid
+flowchart LR
+    Camera[Camera IP<br/>RTSP] -->|RTSP| MTX[MediaMTX<br/>single pull point]
+    MTX -->|RTSP nội bộ| Vision[vision-pipeline<br/>C++ / DeepStream / TensorRT]
+    Vision -->|gaze/cam_id/metadata| MQTT[(Mosquitto MQTT)]
+    MQTT --> Analytics[analytics-api<br/>Python / FastAPI]
+    Analytics -->|REST + WebSocket| Client[Dashboard / Client]
+    MTX -->|WebRTC / WHEP| Client
+    Analytics -->|MediaMTX API| MTX
+    Analytics -->|gRPC Add/Remove/ListCamera| Vision
+```
 
----
+### Luồng dữ liệu
 
-## 🏛️ Kiến Trúc Hệ Thống (Architecture)
+1. MediaMTX kéo camera thật và tạo path RTSP nội bộ.
+2. `vision-pipeline` đọc path đó bằng GStreamer/DeepStream.
+3. Pad probe lấy metadata, crop khuôn mặt trên GPU và chạy FaceMesh TensorRT.
+4. Landmark được publish lên `gaze/<camera_id>/metadata`.
+5. `analytics-api` tính pose/gaze, lọc nhiễu và publish lên `gaze/<camera_id>/calculated`.
+6. Client nhận telemetry qua WebSocket và nhận video trực tiếp qua WebRTC/WHEP.
 
-``![Diagram](https://mermaid.ink/img/eyJjb2RlIjogImdyYXBoIExSXG4gICAgc3ViZ3JhcGggTEFOW1wiTVx1MWVhMW5nIExBTiAvIEVkZ2UgTmV0d29ya1wiXVxuICAgICAgICBDQU1bXCJcdWQ4M2RcdWRjZjcgQ2FtZXJhIElQIDEuLk48YnIvPihSVFNQLCBIMjY0L0gyNjUpXCJdXG4gICAgICAgIFZJRVdFUltcIlx1ZDgzZFx1ZGNiYiBDbGllbnQgLyBWaWV3ZXIgR1VJPGJyLz5SRVNUIFx1MDBiNyBXZWJTb2NrZXQgXHUwMGI3IFdlYlJUQ1wiXVxuICAgIGVuZFxuXG4gICAgc3ViZ3JhcGggSkVUU09OW1wiTlZJRElBIEpldHNvbiBIb3N0IChEb2NrZXIgQ29tcG9zZSlcIl1cbiAgICAgICAgTVRYW1wiTWVkaWFNVFggR2F0ZXdheTxici8+UlRTUCBQcm94eSA6ODU1NCBcdTAwYjcgQVBJIDo5OTk3PGJyLz5XZWJSVEMvV0hFUCA6ODg4OVwiXVxuXG4gICAgICAgIHN1YmdyYXBoIERTW1widmlzaW9uLXBpcGVsaW5lIChDKysxNylcIl1cbiAgICAgICAgICAgIEdSUENbXCJnUlBDIFNlcnZlciA6NTAwNTE8YnIvPkFkZC9SZW1vdmUvTGlzdCBDYW1lcmFcIl1cbiAgICAgICAgICAgIFBJUEVbXCJHU3RyZWFtZXIgUGlwZWxpbmU8YnIvPnJ0c3BzcmMgXHUyMTkyIG52c3RyZWFtbXV4IFx1MjE5Mjxici8+UGVvcGxlTmV0IChudmluZmVyKSBcdTIxOTIgTnZEQ0YgdHJhY2tlclwiXVxuICAgICAgICAgICAgUFJPQkVbXCJDdXN0b20gUGFkIFByb2JlPGJyLz5HUFUgQ3JvcCAoTnZCdWZTdXJmVHJhbnNmb3JtKTxici8+RmFjZU1lc2ggVGVuc29yUlQgQysrIEFQSVwiXVxuICAgICAgICBlbmRcblxuICAgICAgICBNUVRUW1wiTVFUVCBCcm9rZXI8YnIvPk1vc3F1aXR0byA6MTg4M1wiXVxuXG4gICAgICAgIHN1YmdyYXBoIEFQUFtcImFuYWx5dGljcy1hcGkgKFB5dGhvbiAvIEZhc3RBUEkpXCJdXG4gICAgICAgICAgICBBTEdPW1wiU3BoZXJpY2FsIE1vcnBoaW5nPGJyLz4rIE9uZS1FdXJvIEZpbHRlclwiXVxuICAgICAgICAgICAgQUxFUlRbXCJBbGVydCBFbmdpbmUgKERpc3RyYWN0aW9uKVwiXVxuICAgICAgICAgICAgQVBJW1wiUkVTVCBBUEkgOjgwODA8YnIvPldlYlNvY2tldCAvd3MvZ2F6ZVwiXVxuICAgICAgICBlbmRcbiAgICBlbmRcblxuICAgIENBTSAtLT58XCJSVFNQIEluZ2VzdFwifCBNVFhcbiAgICBNVFggLS0+fFwiUHJveGllZCBSVFNQXCJ8IFBJUEVcbiAgICBQSVBFIC0tPiBQUk9CRVxuICAgIFBST0JFIC0tPnxcIkxhbmRtYXJrIEpTT04gKGdhemUvKy9tZXRhZGF0YSlcInwgTVFUVFxuICAgIE1RVFQgLS0+IEFMR09cbiAgICBBTEdPIC0tPiBBTEVSVFxuICAgIEFMR08gLS0+fFwiU21vb3RoZWQgUG9zZSAoZ2F6ZS8rL2NhbGN1bGF0ZWQpXCJ8IE1RVFRcbiAgICBBUEkgLS0+fFwiXHUwMTEwXHUwMTAzbmcga1x1MDBmZCBwYXRoXCJ8IE1UWFxuICAgIEFQSSAtLT58XCJBZGRDYW1lcmEgLyBSZW1vdmVDYW1lcmFcInwgR1JQQ1xuICAgIEdSUEMgLS4tPnxcIkR5bmFtaWMgUGFkIExpbmsvVW5saW5rXCJ8IFBJUEVcbiAgICBWSUVXRVIgPC0tPiBBUElcbiAgICBNVFggLS0+fFwiV2ViUlRDIFZpZGVvIChXSEVQKVwifCBWSUVXRVIiLCAibWVybWFpZCI6IHsidGhlbWUiOiAiZGVmYXVsdCJ9fQ==)
+`gRPC` chỉ dùng cho command như `AddCamera`, `RemoveCamera`, `ListCameras`. `MQTT` dùng cho stream/event liên tục; không dùng MQTT để quản lý lifecycle camera.
 
-<details><summary>🔍 Xem mã nguồn Mermaid</summary>
+Tài liệu architecture đầy đủ, quy tắc mở rộng và cách debug nằm tại [docs/architecture.md](docs/architecture.md).
 
-`mermaid
-graph LR
-    subgraph LAN["Mạng LAN / Edge Network"]
-        CAM["📷 Camera IP 1..N<br/>(RTSP, H264/H265)"]
-        VIEWER["💻 Client / Viewer GUI<br/>REST · WebSocket · WebRTC"]
-    end
+## Công nghệ
 
-    subgraph JETSON["NVIDIA Jetson Host (Docker Compose)"]
-        MTX["MediaMTX Gateway<br/>RTSP Proxy :8554 · API :9997<br/>WebRTC/WHEP :8889"]
+- C++17, GStreamer, NVIDIA DeepStream 7.0, TensorRT
+- Python 3.10+, FastAPI, Paho MQTT, gRPC
+- MediaMTX, Eclipse Mosquitto, Docker Compose
+- NVIDIA Jetson Orin/Xavier/Nano hoặc Linux NVIDIA GPU tương thích
 
-        subgraph DS["vision-pipeline (C++17)"]
-            GRPC["gRPC Server :50051<br/>Add/Remove/List Camera"]
-            PIPE["GStreamer Pipeline<br/>rtspsrc → nvstreammux →<br/>PeopleNet (nvinfer) → NvDCF tracker"]
-            PROBE["Custom Pad Probe<br/>GPU Crop (NvBufSurfTransform)<br/>FaceMesh TensorRT C++ API"]
-        end
-
-        MQTT["MQTT Broker<br/>Mosquitto :1883"]
-
-        subgraph APP["analytics-api (Python / FastAPI)"]
-            ALGO["Spherical Morphing<br/>+ One-Euro Filter"]
-            ALERT["Alert Engine (Distraction)"]
-            API["REST API :8080<br/>WebSocket /ws/gaze"]
-        end
-    end
-
-    CAM -->|"RTSP Ingest"| MTX
-    MTX -->|"Proxied RTSP"| PIPE
-    PIPE --> PROBE
-    PROBE -->|"Landmark JSON (gaze/+/metadata)"| MQTT
-    MQTT --> ALGO
-    ALGO --> ALERT
-    ALGO -->|"Smoothed Pose (gaze/+/calculated)"| MQTT
-    API -->|"Đăng ký path"| MTX
-    API -->|"AddCamera / RemoveCamera"| GRPC
-    GRPC -.->|"Dynamic Pad Link/Unlink"| PIPE
-    VIEWER <--> API
-    MTX -->|"WebRTC Video (WHEP)"| VIEWER
-`
-
-</details>``
-
-### Các Service Độc Lập
-1. **`vision-pipeline` (C++17 / TensorRT / GStreamer):**
-   - Ingestion đa camera qua GStreamer pipeline tối ưu phần cứng.
-   - Nhận diện người bằng PeopleNet + Tracking bằng NvDCF.
-   - Crop khuôn mặt và chuyển đổi định dạng trực tiếp trên GPU qua `NvBufSurfTransform` (Zero-copy).
-   - Suy luận 468/478 Face Landmarks bằng FaceMesh qua TensorRT C++ Native API.
-   - gRPC Server (:50051) cho phép gắn/gỡ dynamic pad vào `nvstreammux` mà không cần khởi động lại pipeline.
-2. **`analytics-api` (Python 3.10 / FastAPI):**
-   - Subscribe message từ MQTT broker.
-   - Tính toán tư thế đầu (Head Pose - Yaw, Pitch, Roll) bằng thuật toán **Spherical Morphing**.
-   - Khử rung thích ứng bằng **One-Euro Filter**.
-   - Cung cấp REST APIs, WebSocket streaming và WebRTC player.
-3. **`mediamtx`:** Proxy RTSP và Gateway WebRTC WHEP, tránh quá tải kết nối trực tiếp đến camera IP.
-4. **`mqtt-broker` (Eclipse Mosquitto):** Message bus trung gian độ trễ siêu thấp giữa C++ và Python.
-
----
-
-## 📁 Cấu Trúc Thư Mục Chuẩn Production
+## Cấu trúc thư mục
 
 ```text
-headpose-cameraIP/
-├── .github/                         # CI/CD Workflows
-│   └── workflows/
-│       ├── ci-backend.yml           # Linting (Ruff), Pytest unit tests
-│       ├── ci-pipeline.yml          # Format check (Clang-format)
-│       └── docker-build.yml         # Container build smoke check
-├── api/                             # Single Source of Truth cho gRPC / Protobuf
-│   └── proto/
-│       └── camera_service.proto     # Schema định nghĩa gRPC API
-├── assets/                          # Hình ảnh sơ đồ kiến trúc & Dashboard UI
-│   ├── system_architecture.png
-│   ├── demo_realtime.png
-│   └── dashboard_preview.png
-├── configs/                         # Cấu hình tập trung cho toàn bộ hệ thống
-│   ├── mediamtx.yml
-│   ├── mosquitto.conf
-│   └── pipeline_config.example.yaml
-├── deployments/                     # Môi trường triển khai
-│   ├── docker/
-│   │   ├── docker-compose.prod.yml  # Compose production cho NVIDIA Jetson
-│   │   └── docker-compose.dev.yml   # Compose dev/local (mock RTSP, broker)
-│   ├── systemd/
-│   │   └── headpose.service         # Systemd service unit cho Jetson bare-metal
-│   └── .env.example                 # Mẫu biến môi trường
-├── docs/                            # Tài liệu kỹ thuật chi tiết
-│   ├── architecture.md              # Thiết kế chi tiết kiến trúc & data flow
-│   ├── benchmarks.md                # Báo cáo đo kiểm hiệu năng chi tiết
-│   ├── dynamic_pad_manipulation.md  # Kỹ thuật gRPC Add/Remove stream động
-│   ├── api_reference.md             # Đặc tả REST / WebSocket / gRPC / MQTT
-│   └── design_and_architecture.md   # Thiết kế C++ pipeline & probe internals
-├── models/                          # Cấu hình inference & helper scripts
-│   ├── download_weights.sh          # Script tải/kiểm tra model weights
-│   ├── peoplenet/                   # PeopleNet configs & labels
-│   ├── mediapipe_pose/              # FaceMesh ONNX & parser configs
-│   ├── retinaface/                  # RetinaFace fallback configs
-│   └── scrfd/                       # SCRFD fallback configs
-├── services/                        # Microservices mã nguồn chính
-│   ├── vision_pipeline/             # [C++17] Native DeepStream & TensorRT Service
-│   │   ├── CMakeLists.txt
-│   │   ├── Dockerfile
-│   │   ├── proto/
-│   │   └── src/                     # main.cpp, pipeline.cpp, probe_processor.cpp
-│   └── analytics_api/               # [Python] FastAPI Business Logic & Alert Engine
-│       ├── Dockerfile
-│       ├── requirements.txt
-│       ├── main.py
-│       ├── modules/                 # head_pose_algo.py (Spherical Morphing & Filter)
-│       ├── static/                  # Web dashboard UI
-│       └── tests/                   # Pytest unit tests cho thuật toán
-├── tools/                           # Developer & Evaluation Tools
-│   ├── gaze_visualizer_gui.py       # GUI xem trực tiếp video và overlay pose debug
-│   ├── rtsp_simulator.py            # Giả lập camera RTSP từ file video MP4
-│   └── benchmark_latency.py         # Công cụ đo độ trễ MQTT/gRPC end-to-end
-├── benchmarks/                      # PoC baseline lưu trữ để so sánh hiệu năng
-│   └── poc_monolithic_pipeline.py
-├── .dockerignore
-├── .gitignore
-├── .pre-commit-config.yaml          # Quản lý pre-commit linting (Ruff, Clang-format)
-├── Makefile                         # Lệnh điều khiển 1 chạm (make prod-up, make test, ...)
+.
+├── api/proto/                 # Proto dùng chung cho gRPC
+├── configs/                   # MediaMTX, Mosquitto, pipeline config
+├── deployments/               # Docker Compose và file môi trường
+├── docs/                      # Architecture, API và tài liệu kỹ thuật
+├── models/                    # Model/config inference
+├── services/
+│   ├── vision_pipeline/       # C++ DeepStream/TensorRT service
+│   └── analytics_api/         # Python FastAPI và thuật toán
+├── tools/                     # RTSP simulator, visualizer, benchmark
+├── benchmarks/                # Baseline và benchmark
+├── Makefile
 └── README.md
 ```
 
----
+## Yêu cầu
 
-## 🚀 Hướng Dẫn Khởi Chạy (Quickstart)
+- Docker và Docker Compose.
+- NVIDIA Container Toolkit nếu chạy production pipeline trên Jetson/GPU.
+- Python 3.10+ nếu chạy test hoặc tool ngoài container.
+- Camera IP hỗ trợ RTSP, hoặc file video để dùng với RTSP simulator.
 
-### 1. Yêu Cầu Phần Cứng & Môi Trường
-- Thiết bị **NVIDIA Jetson** (JetPack 6.x / DeepStream 7.0+) hoặc máy Linux x86_64 có NVIDIA GPU hỗ trợ TensorRT.
-- Docker & NVIDIA Container Toolkit.
-- Python 3.10+ (nếu chạy test hoặc công cụ phụ trợ ngoài container).
+## Cấu hình
 
-### 2. Cài Đặt và Khởi Chạy Nhanh với Makefile
+Tạo file môi trường local từ mẫu:
 
 ```bash
-# 1. Cấu hình biến môi trường
 cp deployments/.env.example deployments/.env
-# Điền thông tin RTSP camera vào deployments/.env
+```
 
-# 2. Khởi chạy toàn bộ hệ thống (Production)
+Điền URL camera và địa chỉ Jetson mà client bên ngoài có thể truy cập. Không commit username/password camera hoặc file `.env` vào Git.
+
+## Chạy hệ thống
+
+### Production trên Jetson
+
+```bash
 make prod-up
+```
 
-# 3. Xem log hoạt động
+Xem log:
+
+```bash
 docker compose -f deployments/docker/docker-compose.prod.yml logs -f
 ```
 
-### 3. Thêm / Xóa Camera Động tại Runtime
+Dừng hệ thống:
 
 ```bash
-# Thêm camera (không restart service):
+make prod-down
+```
+
+### Development/local
+
+Khởi động Mosquitto, MediaMTX và analytics API:
+
+```bash
+make dev-up
+```
+
+Dừng môi trường dev:
+
+```bash
+make dev-down
+```
+
+Nếu không có camera thật, có thể dùng simulator:
+
+```bash
+python tools/rtsp_simulator.py \
+  --input sample_video.mp4 \
+  --url rtsp://localhost:8554/cam0
+```
+
+## API và protocol
+
+Các endpoint và topic đầy đủ được ghi tại [docs/api_reference.md](docs/api_reference.md).
+
+| Loại | Địa chỉ | Mục đích |
+| --- | --- | --- |
+| REST | `GET /cameras` | Liệt kê camera |
+| REST | `POST /cameras/add` | Thêm camera runtime |
+| REST | `DELETE /cameras/{cam_id}` | Xóa camera runtime |
+| REST | `GET /history/{cam_id}` | Lấy telemetry lịch sử |
+| WebSocket | `/ws/gaze` | Stream pose/gaze và alert |
+| MQTT | `gaze/{cam_id}/metadata` | Landmark thô từ pipeline |
+| MQTT | `gaze/{cam_id}/calculated` | Pose/gaze đã filter và alert |
+| gRPC | `:50051` | Quản lý lifecycle camera |
+
+Ví dụ thêm camera:
+
+```bash
 curl -X POST http://localhost:8080/cameras/add \
-     -H 'Content-Type: application/json' \
-     -d '{"url": "rtsp://user:password@192.168.1.50:554/stream"}'
-
-# Xóa camera:
-curl -X DELETE http://localhost:8080/cameras/1
+  -H 'Content-Type: application/json' \
+  -d '{"url":"rtsp://user:password@192.168.1.50:554/stream"}'
 ```
 
-### 4. Sử Dụng Công Cụ Giả Lập & Visualizer (Tools)
-
-- **Giả lập RTSP từ file video (không cần camera thật):**
-  ```bash
-  python tools/rtsp_simulator.py --input sample_video.mp4 --url rtsp://localhost:8554/cam0
-  ```
-- **Mở Visualizer Debug GUI:**
-  ```bash
-  python tools/gaze_visualizer_gui.py
-  ```
-- **Đo Benchmark độ trễ:**
-  ```bash
-  python tools/benchmark_latency.py --broker 127.0.0.1
-  ```
-
----
-
-## 🧪 Kiểm Thử & Đảm Bảo Chất Lượng Mã Nguồn (QA & Testing)
+## Kiểm thử và chất lượng
 
 ```bash
-# Chạy Unit Tests thuật toán (One-Euro filter, Spherical Morphing, Geom Check)
-make test
-
-# Kiểm tra định dạng code & linting
-make lint
-
-# Tự động format code
-make format
+make test       # Python unit tests
+make lint       # Ruff và các kiểm tra lint
+make format     # Format Python/tooling code
 ```
 
----
+Khi thay đổi C++ pipeline, cần build Docker image tương ứng và kiểm tra model, batch size, GPU memory, MQTT topic và gRPC contract.
 
-## 📄 Tài Liệu Kỹ Thuật Bổ Sung
-- [Chi tiết Thiết kế Kiến trúc](docs/architecture.md)
-- [Báo cáo Hiệu năng & Đo kiểm](docs/benchmarks.md)
-- [Cơ chế Link/Unlink Dynamic Pad](docs/dynamic_pad_manipulation.md)
-- [Tài liệu API & Protocol Specs](docs/api_reference.md)
-- [Ghi chú Thiết kế C++ DeepStream](docs/design_and_architecture.md)
+## Nguyên tắc bảo trì
 
----
+- Sửa proto tại `api/proto/`, không sửa trực tiếp file generated.
+- Không cho `vision-pipeline` kéo trực tiếp camera thật; luôn đi qua MediaMTX.
+- Giữ business logic trong `analytics-api`, không đưa alert/filter vào pad probe.
+- Dùng environment variable cho IP, port, model path và ngưỡng cảnh báo.
+- Khi thêm endpoint/topic/service, cập nhật tài liệu tương ứng trong `docs/`.
+- Khi debug, kiểm tra theo thứ tự: MediaMTX → GStreamer/DeepStream → MQTT → analytics API → WebSocket/WebRTC.
 
-## 📜 Giấy Phép (License)
-Dự án được phân phối dưới giấy phép [MIT License](LICENSE).
+## Tài liệu liên quan
+
+- [Architecture và data flow](docs/architecture.md)
+- [API và protocol reference](docs/api_reference.md)
+- [Dynamic pad manipulation](docs/dynamic_pad_manipulation.md)
+- [C++/DeepStream design](docs/design_and_architecture.md)
+- [Benchmark](docs/benchmarks.md)
+- [Technical deep dive](docs/codebase_line_by_line_architecture_deep_dive.md)
+
+## License
+
+Dự án được phát hành theo [MIT License](LICENSE).
