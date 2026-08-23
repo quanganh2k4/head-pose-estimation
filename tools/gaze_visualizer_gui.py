@@ -130,7 +130,7 @@ SCRFD_3D_MODEL = np.array([
 def init_scrfd_detector(engine_path):
     # This is kept as a checker stub
     if not HAS_SCRFD_DEPS:
-        raise RuntimeError("Không thể chạy SCRFD vì thiếu thư viện PyCUDA hoặc TensorRT.")
+        raise RuntimeError("Cannot run SCRFD because PyCUDA or TensorRT is unavailable.")
     return None
 
 class SCRFDProcess(multiprocessing.get_context("spawn").Process):
@@ -221,7 +221,7 @@ def _get_trt_tensor_index(engine, name):
     for i in range(engine.num_io_tensors):
         if engine.get_tensor_name(i) == name:
             return i
-    raise ValueError(f"Tensor không có trong engine: {name!r}")
+    raise ValueError(f"Tensor is missing from the engine: {name!r}")
 
 class SCRFDTRT:
     W = H = 640
@@ -708,12 +708,12 @@ def gst_capture_worker(cam_id, rtsp_url):
         gi.require_version('Gst', '1.0')
         from gi.repository import Gst, GLib
     except ImportError:
-        print(f"[GST] PyGObject/GStreamer chưa cài. Cài đặt:\n"
-              f"  Windows: tải GStreamer runtime+devel (MSVC) tại gstreamer.freedesktop.org,\n"
-              f"           rồi 'pip install PyGObject' (hoặc dùng gói vendor kèm sẵn gi).\n"
+        print(f"[GST] PyGObject/GStreamer is not installed. Install:\n"
+              f"  Windows: download the GStreamer runtime+devel (MSVC) from gstreamer.freedesktop.org,\n"
+              f"           then install PyGObject (or use the bundled vendor package).\n"
               f"  Linux:   sudo apt install python3-gi gstreamer1.0-plugins-{{good,bad,ugly}} "
               f"gstreamer1.0-libav\n"
-              f"Hoặc chạy lại với --backend opencv để dùng OpenCV như cũ.")
+              f"Or run again with --backend opencv to use OpenCV as before.")
         stop_event.set()
         return
 
@@ -1006,31 +1006,31 @@ def main():
     parser.add_argument("--mqtt-port", type=int, default=1883,
                         help="MQTT broker port")
     parser.add_argument("--app-api", type=str, default="http://127.0.0.1:8080",
-                        help="application service REST API, dùng để lấy URL camera "
-                             "đã proxy qua mediamtx thay vì pull thẳng camera")
+                        help="Application service REST API used to fetch camera URLs "
+                             "proxied through mediamtx instead of pulling cameras directly")
     parser.add_argument("--gui", action="store_true", default=False,
                         help="Open a local GUI display window (cv2.imshow)")
     parser.add_argument("--web", dest="web", action="store_true", default=True,
                         help="Start MJPEG web streaming server (default: True)")
     parser.add_argument("--no-web", dest="web", action="store_false",
-                        help="Tắt MJPEG web server — dùng khi chỉ cần --gui, tránh "
+                        help="Disable the MJPEG web server when only --gui is needed, avoiding "
                              "cv2.imshow (main thread) and cv2.imencode (web thread) "
                              "cùng đụng vào Qt internals gây spam 'QObject::killTimer'.")
     parser.add_argument("--web-port", type=int, default=5000,
                         help="MJPEG web server port")
     parser.add_argument("--pipeline-delay", type=float, default=PIPELINE_DELAY_MS,
-                        help="Ước tính độ trễ pipeline Jetson->laptop (ms), CHỈ đúng nếu "
-                             "2 máy đã NTP-sync đồng hồ. Tăng nếu bbox chạy trước mặt, "
-                             f"giảm nếu bbox chạy sau. (default: {PIPELINE_DELAY_MS:.0f})")
+                        help="Estimated Jetson-to-laptop pipeline delay (ms), accurate only when "
+                             "both clocks are NTP-synchronized. Increase it if the bbox leads, "
+                             f"decrease it if the bbox lags. (default: {PIPELINE_DELAY_MS:.0f})")
     parser.add_argument("--backend", type=str, default="opencv", choices=["opencv", "gstreamer"],
-                        help="Cách đọc RTSP: 'opencv' (mặc định, cũ) hay 'gstreamer' "
-                             "(PTS thật per-frame thay vì đoán theo giờ nhận, thử nghiệm "
-                             "để so sánh độ đồng bộ). Cần cài GStreamer+PyGObject riêng "
-                             "nếu chọn 'gstreamer'.")
+                        help="RTSP reader: 'opencv' (legacy default) or 'gstreamer' "
+                             "(experimental per-frame PTS instead of receive-time estimates "
+                             "for synchronization comparison). GStreamer+PyGObject is required "
+                             "when selecting 'gstreamer'.")
     parser.add_argument("--scrfd", action="store_true", default=False,
-                        help="Chạy nhận diện mặt và landmark bằng SCRFD TensorRT cục bộ thay vì dùng MediaPipe từ MQTT.")
+                        help="Run local face and landmark detection with SCRFD TensorRT instead of MediaPipe from MQTT.")
     parser.add_argument("--scrfd-engine", type=str, default=None,
-                        help="Đường dẫn tới file .engine của SCRFD. Mặc định tự động tìm theo các vị trí phổ biến.")
+                        help="Path to the SCRFD .engine file. Common locations are searched by default.")
     args = parser.parse_args()
 
     PIPELINE_DELAY_MS = args.pipeline_delay
@@ -1045,8 +1045,8 @@ def main():
     camera_urls = dict(CAMERA_RTSP_URLS)
     camera_urls.update(fetched)
     if not fetched:
-        print("[Viewer] WARNING: dùng URL camera trực tiếp (fallback) — "
-              "sẽ pull RTSP song song với deepstream-service.")
+        print("[Viewer] WARNING: using direct camera URLs as a fallback; "
+              "RTSP will be pulled in parallel with deepstream-service.")
 
     # Configure topics
     mqtt_topics = [f"gaze/{cam}/calculated" for cam in active_cams]
@@ -1089,10 +1089,10 @@ def main():
             engine_path = next((p for p in _candidates if os.path.exists(p)), None)
 
         if not engine_path or not os.path.exists(engine_path):
-            print("[TRT] ERROR: Không tìm thấy SCRFD engine. Hãy chỉ định bằng --scrfd-engine /path/to/det_10g.engine")
+            print("[TRT] ERROR: SCRFD engine not found. Specify --scrfd-engine /path/to/det_10g.engine")
             sys.exit(1)
 
-        print(f"[TRT] Dùng SCRFD engine: {engine_path}")
+        print(f"[TRT] Using SCRFD engine: {engine_path}")
         scrfd_proc = SCRFDProcess(engine_path, scrfd_in_q, scrfd_out_q)
         scrfd_proc.start()
         print("[Viewer] Spawned SCRFD child process successfully.")
