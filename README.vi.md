@@ -54,8 +54,6 @@ flowchart LR
 | Architecture | Thành phần, protocol và data/control plane | [Mở trên GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-architecture.html) | [HTML](headpose-architecture.html) · [JSON](headpose-architecture.archify.json) |
 | Sequence | Đăng ký camera và telemetry realtime | [Mở trên GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-sequence.html) | [HTML](headpose-sequence.html) · [JSON](headpose-sequence.archify.json) |
 
-Các link live được tự động deploy bởi workflow [Deploy Archify diagrams](.github/workflows/deploy-diagrams.yml). Với repository này, chỉ cần bật **Settings → Pages → Source: GitHub Actions** một lần.
-
 Thiết kế control plane/data plane, ownership, debug và mở rộng chi tiết nằm tại [docs/architecture.md](docs/architecture.md).
 
 ### Luồng dữ liệu

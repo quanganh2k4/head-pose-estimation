@@ -54,8 +54,6 @@ flowchart LR
 | Architecture | Components, protocols, and data/control planes | [Open on GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-architecture.html) | [HTML](headpose-architecture.html) · [JSON](headpose-architecture.archify.json) |
 | Sequence | Camera registration and real-time telemetry | [Open on GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-sequence.html) | [HTML](headpose-sequence.html) · [JSON](headpose-sequence.archify.json) |
 
-The live links are published automatically by [Deploy Archify diagrams](.github/workflows/deploy-diagrams.yml). Enable **Settings → Pages → Source: GitHub Actions** once for the repository.
-
 Detailed control-plane/data-plane design, ownership rules, debugging flow, and extension guidance are in [docs/architecture.md](docs/architecture.md).
 
 ### Data flow
