@@ -47,6 +47,15 @@ flowchart LR
     Analytics -->|gRPC Add/Remove/ListCamera| Vision
 ~~~
 
+### Interactive diagrams
+
+| Diagram | Purpose | Live view | Source |
+| --- | --- | --- | --- |
+| Architecture | Components, protocols, and data/control planes | [Open on GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-architecture.html) | [HTML](headpose-architecture.html) · [JSON](headpose-architecture.archify.json) |
+| Sequence | Camera registration and real-time telemetry | [Open on GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-sequence.html) | [HTML](headpose-sequence.html) · [JSON](headpose-sequence.archify.json) |
+
+The live links are published automatically by [Deploy Archify diagrams](.github/workflows/deploy-diagrams.yml). Enable **Settings → Pages → Source: GitHub Actions** once for the repository.
+
 Detailed control-plane/data-plane design, ownership rules, debugging flow, and extension guidance are in [docs/architecture.md](docs/architecture.md).
 
 ### Data flow
@@ -114,6 +123,20 @@ cp deployments/.env.example deployments/.env
 
 Configure camera URLs and deployment-specific endpoints. Important settings include CAMERA_URLS, MEDIAMTX_API, MEDIAMTX_RTSP_HOST, DEEPSTREAM_GRPC_SERVER, MQTT_BROKER, MQTT_PORT, YAW_ALERT_DEG, PITCH_ALERT_DEG, and ALERT_DURATION_S.
 
+The standalone viewer gets proxied camera URLs from analytics-api. If the API is unavailable, set CAM0_RTSP_URL and/or CAM1_RTSP_URL locally; these values are never committed.
+
+Camera URL sources:
+
+- Preferred: add a camera with `POST /cameras/add`; the viewer reads the resulting MediaMTX-proxied URL from `--app-api` (default `http://127.0.0.1:8080`).
+- Standalone viewer: copy the RTSP URL from the camera/NVR administration page into local environment variables. Do not put real credentials in source code:
+
+~~~bash
+export CAM0_RTSP_URL='rtsp://<user>:<password>@<camera-host>:<port>/<stream-path>'
+python tools/gaze_visualizer_gui.py --camera cam0
+~~~
+
+On PowerShell, use `$env:CAM0_RTSP_URL = 'rtsp://<user>:<password>@<camera-host>:<port>/<stream-path>'`. Run `python tools/gaze_visualizer_gui.py --camera-url-help` for the same guidance.
+
 Model and log paths support environment overrides where applicable. Never commit camera credentials, .env files, generated TensorRT engines, model weights, or private deployment artifacts.
 
 ## Running the system
@@ -166,8 +189,10 @@ Example camera registration:
 ~~~bash
 curl -X POST http://localhost:8080/cameras/add \
   -H 'Content-Type: application/json' \
-  -d '{"url":"rtsp://user:password@192.168.1.50:554/stream"}'
+  -d '{"url":"rtsp://camera-host:554/stream"}'
 ~~~
+
+No real camera footage is included in this repository. Demo media should only be added when you have permission to publish it; use the RTSP simulator with synthetic or properly licensed footage for local testing.
 
 ## Testing and quality
 

@@ -1,6 +1,6 @@
 # Secrets — credential camera/RTSP nằm trong .env, không bao giờ commit
 .env
-deployment/.env
+deployments/.env
 
 # Logs
 log/*.log
@@ -41,3 +41,7 @@ docs/project_deep_dive_guide.md
 docs/codebase_line_by_line_architecture_deep_dive.md
 benchmarks/poc_monolithic_pipeline.py
 *.bundle
+
+# Archify local browser-check receipts
+*.visual-check.json
+*.visual-check.html

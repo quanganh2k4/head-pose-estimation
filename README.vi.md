@@ -47,6 +47,15 @@ flowchart LR
     Analytics -->|gRPC Add/Remove/ListCamera| Vision
 ~~~
 
+### Sơ đồ tương tác
+
+| Sơ đồ | Nội dung | Bản live | Source |
+| --- | --- | --- | --- |
+| Architecture | Thành phần, protocol và data/control plane | [Mở trên GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-architecture.html) | [HTML](headpose-architecture.html) · [JSON](headpose-architecture.archify.json) |
+| Sequence | Đăng ký camera và telemetry realtime | [Mở trên GitHub Pages](https://quanganh2k4.github.io/head-pose-estimation/headpose-sequence.html) | [HTML](headpose-sequence.html) · [JSON](headpose-sequence.archify.json) |
+
+Các link live được tự động deploy bởi workflow [Deploy Archify diagrams](.github/workflows/deploy-diagrams.yml). Với repository này, chỉ cần bật **Settings → Pages → Source: GitHub Actions** một lần.
+
 Thiết kế control plane/data plane, ownership, debug và mở rộng chi tiết nằm tại [docs/architecture.md](docs/architecture.md).
 
 ### Luồng dữ liệu
@@ -114,6 +123,20 @@ cp deployments/.env.example deployments/.env
 
 Thiết lập CAMERA_URLS, MEDIAMTX_API, MEDIAMTX_RTSP_HOST, DEEPSTREAM_GRPC_SERVER, MQTT_BROKER, MQTT_PORT, YAW_ALERT_DEG, PITCH_ALERT_DEG và ALERT_DURATION_S.
 
+Viewer độc lập lấy URL camera proxy từ analytics-api. Nếu API không khả dụng, đặt CAM0_RTSP_URL và/hoặc CAM1_RTSP_URL ở máy local; các giá trị này không được commit.
+
+Nguồn lấy URL camera:
+
+- Ưu tiên: thêm camera bằng `POST /cameras/add`; viewer sẽ lấy URL proxy MediaMTX từ `--app-api` (mặc định `http://127.0.0.1:8080`).
+- Viewer độc lập: lấy URL RTSP trong trang quản trị camera/NVR rồi đặt vào biến môi trường local. Không đưa credential thật vào source code:
+
+~~~bash
+export CAM0_RTSP_URL='rtsp://<user>:<password>@<camera-host>:<port>/<stream-path>'
+python tools/gaze_visualizer_gui.py --camera cam0
+~~~
+
+Trên PowerShell dùng `$env:CAM0_RTSP_URL = 'rtsp://<user>:<password>@<camera-host>:<port>/<stream-path>'`. Chạy `python tools/gaze_visualizer_gui.py --camera-url-help` để xem hướng dẫn tương tự.
+
 Đường dẫn model/log có thể override bằng environment variable khi được hỗ trợ. Không commit credential camera, file .env, TensorRT engine sinh tự động, model weights hoặc artifact riêng tư.
 
 ## Chạy hệ thống
@@ -166,8 +189,10 @@ Ví dụ đăng ký camera:
 ~~~bash
 curl -X POST http://localhost:8080/cameras/add \
   -H 'Content-Type: application/json' \
-  -d '{"url":"rtsp://user:password@192.168.1.50:554/stream"}'
+  -d '{"url":"rtsp://camera-host:554/stream"}'
 ~~~
+
+Repository không chứa video camera thật. Chỉ thêm media demo khi có quyền công bố; khi test local nên dùng dữ liệu tổng hợp hoặc video có giấy phép phù hợp.
 
 ## Kiểm thử và chất lượng
 

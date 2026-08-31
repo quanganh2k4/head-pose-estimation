@@ -41,8 +41,8 @@ from gi.repository import Gst, GLib
 # Implementation note.
 # Implementation note.
 CAMERA_RTSP_URLS = {
-    "cam0": "rtsp://user:password@192.168.1.10:1904/stream",
-    "cam1": "rtsp://user:password@192.168.1.11:1904/stream",
+    "cam0": os.environ.get("CAM0_RTSP_URL", ""),
+    "cam1": os.environ.get("CAM1_RTSP_URL", ""),
 }
 
 
@@ -1008,6 +1008,8 @@ def main():
     parser.add_argument("--app-api", type=str, default="http://127.0.0.1:8080",
                         help="Application service REST API used to fetch camera URLs "
                              "proxied through mediamtx instead of pulling cameras directly")
+    parser.add_argument("--camera-url-help", action="store_true",
+                        help="Show where to configure standalone CAM0_RTSP_URL/CAM1_RTSP_URL values and exit")
     parser.add_argument("--gui", action="store_true", default=False,
                         help="Open a local GUI display window (cv2.imshow)")
     parser.add_argument("--web", dest="web", action="store_true", default=True,
@@ -1033,6 +1035,11 @@ def main():
                         help="Path to the SCRFD .engine file. Common locations are searched by default.")
     args = parser.parse_args()
 
+    if args.camera_url_help:
+        print("Preferred: register cameras with POST /cameras/add and let --app-api provide proxied URLs.")
+        print("Standalone fallback: set CAM0_RTSP_URL and/or CAM1_RTSP_URL to the RTSP URL from the camera/NVR settings.")
+        return
+
     PIPELINE_DELAY_MS = args.pipeline_delay
     print(f"[Viewer] Pipeline delay compensation: {PIPELINE_DELAY_MS:.0f}ms")
     
@@ -1045,15 +1052,20 @@ def main():
     camera_urls = dict(CAMERA_RTSP_URLS)
     camera_urls.update(fetched)
     if not fetched:
-        print("[Viewer] WARNING: using direct camera URLs as a fallback; "
-              "RTSP will be pulled in parallel with deepstream-service.")
+        print("[Viewer] Using RTSP URLs from CAM0_RTSP_URL/CAM1_RTSP_URL fallback.")
+
+    missing = [cam for cam in active_cams if not camera_urls.get(cam)]
+    if missing:
+        names = ", ".join(f"{cam.upper()}_RTSP_URL" for cam in missing)
+        raise SystemExit(f"No RTSP URL for {', '.join(missing)}. Register cameras through "
+                         f"{args.app_api} or set {names}.")
 
     # Configure topics
     mqtt_topics = [f"gaze/{cam}/calculated" for cam in active_cams]
 
     print(f"=== Starting Gaze Viewer (Camera: {args.camera}) ===")
     for cam in active_cams:
-        print(f" - {cam} RTSP Source: {camera_urls[cam]}")
+        print(f" - {cam} RTSP Source: configured")
     print(f"MQTT Topics : {mqtt_topics}")
     
     # Start MQTT client
