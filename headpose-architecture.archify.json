@@ -7,23 +7,23 @@
     "quality_profile": "showcase"
   },
   "components": [
-    { "id": "camera", "type": "external", "label": "Camera IP", "sublabel": "RTSP source", "pos": [40, 300], "size": [150, 70] },
-    { "id": "client", "type": "frontend", "label": "Dashboard / Client", "sublabel": "REST + WebSocket + WebRTC", "pos": [40, 90], "size": [170, 70] },
-    { "id": "mediamtx", "type": "cloud", "label": "MediaMTX", "sublabel": "RTSP proxy · :8554 · :8889", "pos": [270, 300], "size": [190, 70] },
-    { "id": "vision", "type": "backend", "label": "vision-pipeline", "sublabel": "C++17 · DeepStream · TensorRT · GPU", "pos": [550, 300], "size": [220, 70] },
-    { "id": "mqtt", "type": "messagebus", "label": "Mosquitto MQTT", "sublabel": ":1883 · metadata stream", "pos": [850, 300], "size": [190, 70] },
-    { "id": "analytics", "type": "backend", "label": "analytics-api", "sublabel": "Python · FastAPI · pose/gaze · alerts", "pos": [1120, 300], "size": [220, 70] }
+    { "id": "camera", "type": "external", "label": "Camera IP", "sublabel": "RTSP source", "pos": [30, 300], "size": [150, 70] },
+    { "id": "client", "type": "frontend", "label": "Dashboard / Client", "sublabel": "REST + WebSocket + WebRTC", "pos": [30, 90], "size": [170, 70] },
+    { "id": "mediamtx", "type": "cloud", "label": "MediaMTX", "sublabel": "RTSP proxy · :8554 · :8889", "pos": [220, 300], "size": [180, 70] },
+    { "id": "vision", "type": "backend", "label": "vision-pipeline", "sublabel": "C++17 · DeepStream · TensorRT · GPU", "pos": [440, 300], "size": [220, 70] },
+    { "id": "mqtt", "type": "messagebus", "label": "Mosquitto MQTT", "sublabel": ":1883 · metadata stream", "pos": [700, 300], "size": [190, 70] },
+    { "id": "analytics", "type": "backend", "label": "analytics-api", "sublabel": "Python · FastAPI · pose/gaze · alerts", "pos": [930, 300], "size": [220, 70] }
   ],
   "connections": [
     { "id": "camera-to-mtx", "from": "camera", "to": "mediamtx", "label": "RTSP pull duy nhất", "labelDy": -29, "variant": "emphasis" },
     { "id": "mtx-to-vision", "from": "mediamtx", "to": "vision", "label": "RTSP nội bộ", "labelDy": -29 },
     { "id": "vision-to-mqtt", "from": "vision", "to": "mqtt", "label": "gaze/{camera_id}/metadata", "labelDy": -29, "variant": "emphasis" },
     { "id": "mqtt-to-analytics", "from": "mqtt", "to": "analytics", "label": "landmark + frame metadata", "labelDy": -29 },
-    { "id": "analytics-to-client", "from": "analytics", "to": "client", "label": "REST + WebSocket", "fromSide": "top", "toSide": "bottom", "via": [[1230, 250], [1230, 180], [125, 180]], "labelDx": -120, "variant": "emphasis" },
-    { "id": "mtx-to-client", "from": "mediamtx", "to": "client", "label": "WebRTC / WHEP", "fromSide": "top", "toSide": "bottom", "via": [[365, 250], [365, 205], [125, 205]], "variant": "dashed" },
-    { "id": "client-to-analytics", "from": "client", "to": "analytics", "label": "camera management", "fromSide": "right", "toSide": "top", "via": [[240, 125], [1230, 125], [1230, 250]], "labelDx": 120, "variant": "dashed" },
-    { "id": "analytics-to-mtx", "from": "analytics", "to": "mediamtx", "label": "MediaMTX API :9997", "fromSide": "bottom", "toSide": "bottom", "variant": "dashed" },
-    { "id": "analytics-to-vision", "from": "analytics", "to": "vision", "label": "gRPC :50051 · Add/Remove/List", "fromSide": "bottom", "toSide": "bottom", "variant": "dashed" }
+    { "id": "analytics-to-client", "from": "analytics", "to": "client", "label": "REST + WebSocket", "fromSide": "top", "toSide": "bottom", "via": [[1040, 250], [1040, 180], [115, 180]], "labelDx": -120, "variant": "emphasis" },
+    { "id": "mtx-to-client", "from": "mediamtx", "to": "client", "label": "WebRTC / WHEP", "fromSide": "top", "toSide": "bottom", "via": [[310, 250], [310, 205], [115, 205]], "variant": "dashed" },
+    { "id": "client-to-analytics", "from": "client", "to": "analytics", "label": "camera management", "fromSide": "right", "toSide": "top", "via": [[200, 125], [1040, 125], [1040, 250]], "labelDx": 120, "variant": "dashed" },
+    { "id": "analytics-to-mtx", "from": "analytics", "to": "mediamtx", "label": "MediaMTX API :9997", "fromSide": "bottom", "toSide": "bottom", "via": [[1040, 400], [310, 400], [310, 370]], "variant": "dashed" },
+    { "id": "analytics-to-vision", "from": "analytics", "to": "vision", "label": "gRPC :50051 · Add/Remove/List", "fromSide": "bottom", "toSide": "bottom", "via": [[1040, 425], [550, 425], [550, 370]], "variant": "dashed" }
   ],
   "cards": [
     { "dot": "cyan", "title": "Data plane", "items": ["RTSP đi qua MediaMTX trước khi vào GPU pipeline", "MQTT vận chuyển metadata liên tục", "Client nhận telemetry và video qua hai kênh riêng"] },
