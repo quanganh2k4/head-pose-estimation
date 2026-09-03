@@ -4,7 +4,7 @@
   "meta": {
     "title": "Headpose Camera IP — Luồng thêm camera và telemetry realtime",
     "output": "headpose-sequence.html",
-    "viewBox": [1000, 1120],
+    "viewBox": [1000, 900],
     "quality_profile": "showcase",
     "column_fit": "spread"
   },
@@ -18,34 +18,34 @@
     { "id": "mqtt", "type": "messagebus", "label": "Mosquitto", "sublabel": "MQTT :1883" }
   ],
   "segments": [
-    { "from": 160, "to": 450, "label": "Control plane — đăng ký camera" },
-    { "from": 468, "to": 820, "label": "Data plane — xử lý frame" },
-    { "from": 838, "to": 1040, "label": "Phân phối kết quả" }
+    { "from": 150, "to": 390, "label": "Control plane — đăng ký camera" },
+    { "from": 405, "to": 670, "label": "Data plane — xử lý frame" },
+    { "from": 685, "to": 850, "label": "Phân phối kết quả" }
   ],
   "messages": [
-    { "id": "add-request", "from": "client", "to": "api", "y": 190, "label": "POST /cameras/add { url }", "variant": "emphasis" },
-    { "id": "register-path", "from": "api", "to": "mtx", "y": 240, "label": "Register proxy path via API", "variant": "emphasis" },
-    { "id": "pull-camera", "from": "mtx", "to": "camera", "y": 290, "label": "Pull RTSP stream", "variant": "default" },
-    { "id": "proxy-ready", "from": "mtx", "to": "api", "y": 340, "label": "proxy RTSP URL", "variant": "return" },
-    { "id": "grpc-add", "from": "api", "to": "vision", "y": 380, "label": "AddCamera(proxy RTSP URL)", "variant": "emphasis" },
-    { "id": "grpc-result", "from": "vision", "to": "api", "y": 440, "label": "src_id + status", "variant": "return" },
-    { "id": "internal-rtsp", "from": "mtx", "to": "vision", "y": 480, "label": "RTSP nội bộ / path camera", "variant": "default" },
-    { "id": "detect-track", "from": "vision", "to": "inference", "y": 530, "label": "Decode → batch → PeopleNet → tracking", "variant": "default" },
-    { "id": "facemesh", "from": "vision", "to": "inference", "y": 580, "label": "Face crop + FaceMesh TensorRT", "variant": "default" },
-    { "id": "metadata", "from": "vision", "to": "mqtt", "y": 630, "label": "Publish gaze/{camera_id}/metadata", "variant": "emphasis" },
-    { "id": "subscribe", "from": "mqtt", "to": "api", "y": 680, "label": "Subscribe landmark metadata", "variant": "default" },
-    { "id": "calculate", "from": "api", "to": "inference", "y": 730, "label": "Validate → pose/gaze → One Euro filter → alert", "variant": "default" },
-    { "id": "calculated", "from": "api", "to": "mqtt", "y": 780, "label": "Publish gaze/{camera_id}/calculated", "variant": "dashed" },
-    { "id": "websocket", "from": "api", "to": "client", "y": 860, "label": "WebSocket /ws/gaze/{cam_id}", "variant": "emphasis" },
-    { "id": "video", "from": "mtx", "to": "client", "y": 910, "label": "WebRTC / WHEP video", "variant": "dashed" },
-    { "id": "response", "from": "api", "to": "client", "y": 970, "label": "Pose, gaze, alert telemetry", "variant": "return" }
+    { "id": "add-request", "from": "client", "to": "api", "y": 175, "label": "POST /cameras/add { url }", "variant": "emphasis" },
+    { "id": "register-path", "from": "api", "to": "mtx", "y": 215, "label": "Register proxy path via API", "variant": "emphasis" },
+    { "id": "pull-camera", "from": "mtx", "to": "camera", "y": 255, "label": "Pull RTSP stream", "variant": "default" },
+    { "id": "proxy-ready", "from": "mtx", "to": "api", "y": 295, "label": "proxy RTSP URL", "variant": "return" },
+    { "id": "grpc-add", "from": "api", "to": "vision", "y": 335, "label": "AddCamera(proxy RTSP URL)", "variant": "emphasis" },
+    { "id": "grpc-result", "from": "vision", "to": "api", "y": 385, "label": "src_id + status", "variant": "return" },
+    { "id": "internal-rtsp", "from": "mtx", "to": "vision", "y": 420, "label": "RTSP nội bộ / path camera", "variant": "default" },
+    { "id": "detect-track", "from": "vision", "to": "inference", "y": 460, "label": "Decode → batch → PeopleNet → tracking", "variant": "default" },
+    { "id": "facemesh", "from": "vision", "to": "inference", "y": 500, "label": "Face crop + FaceMesh TensorRT", "variant": "default" },
+    { "id": "metadata", "from": "vision", "to": "mqtt", "y": 540, "label": "Publish gaze/{camera_id}/metadata", "variant": "emphasis" },
+    { "id": "subscribe", "from": "mqtt", "to": "api", "y": 580, "label": "Subscribe landmark metadata", "variant": "default" },
+    { "id": "calculate", "from": "api", "to": "inference", "y": 620, "label": "Validate → pose/gaze → One Euro filter → alert", "variant": "default" },
+    { "id": "calculated", "from": "api", "to": "mqtt", "y": 660, "label": "Publish gaze/{camera_id}/calculated", "variant": "dashed" },
+    { "id": "websocket", "from": "api", "to": "client", "y": 720, "label": "WebSocket /ws/gaze/{cam_id}", "variant": "emphasis" },
+    { "id": "video", "from": "mtx", "to": "client", "y": 760, "label": "WebRTC / WHEP video", "variant": "dashed" },
+    { "id": "response", "from": "api", "to": "client", "y": 810, "label": "Pose, gaze, alert telemetry", "variant": "return" }
   ],
   "activations": [
-    { "participant": "api", "from": 184, "to": 448, "type": "backend" },
-    { "participant": "mtx", "from": 234, "to": 930, "type": "cloud" },
-    { "participant": "vision", "from": 384, "to": 650, "type": "backend" },
-    { "participant": "mqtt", "from": 624, "to": 790, "type": "messagebus" },
-    { "participant": "api", "from": 674, "to": 982, "type": "backend" }
+    { "participant": "api", "from": 170, "to": 390, "type": "backend" },
+    { "participant": "mtx", "from": 210, "to": 775, "type": "cloud" },
+    { "participant": "vision", "from": 340, "to": 555, "type": "backend" },
+    { "participant": "mqtt", "from": 535, "to": 670, "type": "messagebus" },
+    { "participant": "api", "from": 575, "to": 820, "type": "backend" }
   ],
   "cards": [
     { "dot": "cyan", "title": "Lifecycle", "items": ["Camera được đăng ký qua analytics-api", "MediaMTX là điểm pull duy nhất", "gRPC chỉ dùng cho command lifecycle"] },
