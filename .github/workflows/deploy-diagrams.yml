@@ -1,10 +1,6 @@
 name: Deploy Archify diagrams
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/deploy-diagrams.yml"
   workflow_dispatch:
 
 permissions:
