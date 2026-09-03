@@ -5040,8 +5040,8 @@
         <path data-edge-from="analytics" data-edge-to="client" data-edge-label="REST + WebSocket" data-edge-key="4" data-edge-id="analytics-to-client" data-composition-points="1230,300;1230,250;1230,180;125,180;125,160" d="M 1230 300 L 1230 258 Q 1230 250 1230 242 L 1230 188 Q 1230 180 1222 180 L 133 180 Q 125 180 125 172 L 125 160" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="mediamtx" data-edge-to="client" data-edge-label="WebRTC / WHEP" data-edge-key="5" data-edge-id="mtx-to-client" data-composition-points="365,300;365,250;365,205;125,205;125,160" d="M 365 300 L 365 258 Q 365 250 365 242 L 365 213 Q 365 205 357 205 L 133 205 Q 125 205 125 197 L 125 160" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="client" data-edge-to="analytics" data-edge-label="camera management" data-edge-key="6" data-edge-id="client-to-analytics" data-composition-points="210,125;240,125;1230,125;1230,250;1230,300" d="M 210 125 L 232 125 Q 240 125 248 125 L 1222 125 Q 1230 125 1230 133 L 1230 242 Q 1230 250 1230 258 L 1230 300" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="analytics" data-edge-to="mediamtx" data-edge-label="MediaMTX API :9997" data-edge-key="7" data-edge-id="analytics-to-mtx" data-composition-points="1230,370;1230,430;365,430;365,370;365,370" d="M 1230 370 L 1230 422 Q 1230 430 1222 430 L 373 430 Q 365 430 365 422 L 365 370 L 365 370" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="analytics" data-edge-to="vision" data-edge-label="gRPC :50051 · Add/Remove/List" data-edge-key="8" data-edge-id="analytics-to-vision" data-composition-points="1230,370;1230,470;660,470;660,370;660,370" d="M 1230 370 L 1230 462 Q 1230 470 1222 470 L 668 470 Q 660 470 660 462 L 660 370 L 660 370" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="analytics" data-edge-to="mediamtx" data-edge-label="MediaMTX API :9997" data-edge-key="7" data-edge-id="analytics-to-mtx" data-composition-points="1223,370;1223,394;365,394;365,370" d="M 1223 370 L 1223 386 Q 1223 394 1215 394 L 373 394 Q 365 394 365 386 L 365 370" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="analytics" data-edge-to="vision" data-edge-label="gRPC :50051 · Add/Remove/List" data-edge-key="8" data-edge-id="analytics-to-vision" data-composition-points="1237,370;1237,394;660,394;660,370" d="M 1237 370 L 1237 386 Q 1237 394 1229 394 L 668 394 Q 660 394 660 386 L 660 370" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
         <g id="node-camera" data-node-id="camera" data-node-label="Camera IP" tabindex="0" role="button" aria-label="Focus Camera IP, RTSP source, Architecture component" aria-pressed="false" data-node-kind="external" data-node-sublabel="RTSP source" data-node-context="Architecture component">
@@ -5147,19 +5147,41 @@
           <text x="855" y="115" class="t-messagebus" font-size="8" text-anchor="middle">camera management</text>
         </g>
         <g data-detail="context" data-edge-from="analytics" data-edge-to="mediamtx" data-edge-label="MediaMTX API :9997" data-edge-key="7" data-edge-id="analytics-to-mtx">
-          <rect x="749.3" y="410" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="797.5" y="420" class="t-messagebus" font-size="8" text-anchor="middle">MediaMTX API :9997</text>
+          <rect x="745.8" y="374" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
+          <text x="794" y="384" class="t-messagebus" font-size="8" text-anchor="middle">MediaMTX API :9997</text>
         </g>
         <g data-detail="context" data-edge-from="analytics" data-edge-to="vision" data-edge-label="gRPC :50051 · Add/Remove/List" data-edge-key="8" data-edge-id="analytics-to-vision">
-          <rect x="870.4" y="450" width="149.2" height="14" rx="3" class="c-mask"/>
-          <text x="945" y="460" class="t-messagebus" font-size="8" text-anchor="middle">gRPC :50051 · Add/Remove/List</text>
+          <rect x="873.9" y="374" width="149.2" height="14" rx="3" class="c-mask"/>
+          <text x="948.5" y="384" class="t-messagebus" font-size="8" text-anchor="middle">gRPC :50051 · Add/Remove/List</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->
 
 
         <!-- Legend -->
-
+        <g data-legend="" data-legend-bridge="">
+          <text x="40" y="402" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="Frontend" data-legend-x="40" data-legend-baseline="422" data-legend-width="83">
+            <rect x="40" y="413" width="16" height="10" rx="2.5" class="c-frontend" stroke-width="1"/>
+            <text x="62" y="422" class="t-muted" font-size="10" font-weight="500">Frontend</text>
+          </g>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Backend" data-legend-x="145" data-legend-baseline="422" data-legend-width="78">
+            <rect x="145" y="413" width="16" height="10" rx="2.5" class="c-backend" stroke-width="1"/>
+            <text x="167" y="422" class="t-muted" font-size="10" font-weight="500">Backend</text>
+          </g>
+          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud" data-legend-x="245" data-legend-baseline="422" data-legend-width="68">
+            <rect x="245" y="413" width="16" height="10" rx="2.5" class="c-cloud" stroke-width="1"/>
+            <text x="267" y="422" class="t-muted" font-size="10" font-weight="500">Cloud</text>
+          </g>
+          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Message bus" data-legend-x="335" data-legend-baseline="422" data-legend-width="98">
+            <rect x="335" y="413" width="16" height="10" rx="2.5" class="c-messagebus" stroke-width="1"/>
+            <text x="357" y="422" class="t-muted" font-size="10" font-weight="500">Message bus</text>
+          </g>
+          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External" data-legend-x="455" data-legend-baseline="422" data-legend-width="83">
+            <rect x="455" y="413" width="16" height="10" rx="2.5" class="c-external" stroke-width="1"/>
+            <text x="477" y="422" class="t-muted" font-size="10" font-weight="500">External</text>
+          </g>
+        </g>
       </svg>
       <p class="intent-trace-status no-print" id="intent-trace-status" role="status" aria-live="polite" aria-atomic="true"></p>
       <div class="share-chapter-cue no-print" id="share-chapter-cue" hidden role="status" aria-live="polite">
